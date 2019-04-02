@@ -18,6 +18,22 @@ def resp(start_response, code, headers=[('Content-type', 'text/plain')], body=b'
 
 # *** Master Server ***
 
+# TODO: don't use leveldb cause it's single process
+class SimpleKV(object):
+  def __init__(self, fn):
+    import plyvel
+    self.db = plyvel.DB(fn, create_if_missing=True)
+
+  def get(self, k):
+    return self.db.get(k)
+
+  def put(self, k, v):
+    self.db.put(k, v)
+
+  def delete(self, k):
+    self.db.delete(k)
+
+
 if os.environ['TYPE'] == "master":
   # check on volume servers
   volumes = os.environ['VOLUMES'].split(",")
@@ -25,8 +41,7 @@ if os.environ['TYPE'] == "master":
   for v in volumes:
     print(v)
 
-  import plyvel
-  db = plyvel.DB(os.environ['DB'], create_if_missing=True)
+  db = SimpleKV(os.environ['DB'])
 
 def master(env, sr):
   host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
