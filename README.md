@@ -15,14 +15,14 @@ Even if this code is crap, the on disk format is super simple! It's like the ngi
 ### Start Master Server (default port 3000)
 
 ```
-./master /tmp/cachedb/
+./master localhost:3001,localhost:3002 /tmp/cachedb/
 ```
 
 ### Start Volume Server (default port 3001)
 
 ```
-./volume /tmp/volume1/ localhost:3000
-PORT=3002 ./volume -p 3002 /tmp/volume2/ localhost:3000
+./volume /tmp/volume1/
+PORT=3002 ./volume /tmp/volume2/
 ```
 
 ### Usage
