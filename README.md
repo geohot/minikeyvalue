@@ -42,3 +42,13 @@ curl -L localhost:3000/wehave
 curl -L -X DELETE localhost:3000/wehave
 ```
 
+### Performance
+
+```
+# Fetching non-existent key: 510 req/sec
+wrk -t2 -c100 -d10s http://localhost:3000/key
+
+# Fetching existent key: 440 req/sec (idk if redirect is being followed)
+wrk -t2 -c100 -d10s http://localhost:3000/wehave
+```
+
