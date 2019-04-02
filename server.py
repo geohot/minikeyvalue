@@ -4,6 +4,7 @@ import json
 import lmdb
 import xattr
 import random
+import shutil
 import socket
 import hashlib
 import tempfile
@@ -37,20 +38,25 @@ def master(env, sr):
   # POST is called by the volume servers to write to the master database
   if env['REQUEST_METHOD'] == 'POST':
     flen = int(env.get('CONTENT_LENGTH', '0'))
-    print("posting", key, flen)
-    # TODO: overwrite shouldn't be allowed
+    #print("posting", key, flen)
     with db.begin(write=True) as txn:
+      metakey = txn.get(bkey)
       if flen > 0:
-        txn.put(bkey, env['wsgi.input'].read())
+        if metakey is None:
+          txn.put(bkey, env['wsgi.input'].read())
+        else:
+          return resp(sr, '409 Conflict')
       else:
-        txn.delete(bkey)
+        if metakey is not None:
+          txn.delete(bkey)
+        else:
+          return resp(sr, '404 Not Found (delete on master)')
     return resp(sr, '200 OK')
 
   # fetch the data from the lmdb
   with db.begin() as txn:
     metakey = txn.get(bkey)
 
-  print(key, metakey)
   if metakey is None:
     if env['REQUEST_METHOD'] == 'PUT':
       # handle putting key
@@ -81,12 +87,20 @@ class FileCache(object):
     self.basedir = os.path.realpath(basedir)
     self.tmpdir = os.path.join(self.basedir, "tmp")
     os.makedirs(self.tmpdir, exist_ok=True)
+
+    # TODO: lock this basedir such that starting two volume servers will fail
+
+    # remove all files in tmpdir
+    for fn in os.listdir(self.tmpdir):
+      os.unlink(os.path.join(self.tmpdir, fn))
+
     print("FileCache in %s" % basedir)
 
   def k2p(self, key, mkdir_ok=False):
     key = hashlib.md5(key.encode('utf-8')).hexdigest()
 
-    # 2 layers deep in nginx world
+    # 2 byte layers deep, meaning a fanout of 256
+    # optimized for 2^24 = 16M files per volume server
     path = self.basedir+"/"+key[0:2]+"/"+key[0:4]
     if not os.path.isdir(path) and mkdir_ok:
       # exist ok is fine, could be a race
@@ -113,14 +127,16 @@ class FileCache(object):
 
   def put(self, key, stream):
     with tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=False) as f:
-      # TODO: in chunks, don't waste RAM
-      f.write(stream.read())
+      shutil.copyfileobj(stream, f)
 
       # save the real name in xattr in case we rebuild cache
       xattr.setxattr(f.name, 'user.key', key.encode('utf-8'))
 
-      # TODO: check hash
-      os.rename(f.name, self.k2p(key, True))
+    # Note, a crash here will leave a tmp file around.
+    # This is okay and will be deleted on volume server restart
+
+    # TODO: check hash
+    os.rename(f.name, self.k2p(key, True))
 
 if os.environ['TYPE'] == "volume":
 
@@ -142,7 +158,7 @@ def volume(env, sr):
       else:
         # roll back the best we can
         fc.delete(key)
-        return resp(sr, '500 Internal Server Error')
+        return resp(sr, '500 Internal Server Error (master db put fail)')
     else:
       return resp(sr, '411 Length Required')
 
@@ -163,7 +179,7 @@ def volume(env, sr):
       # key not in the FileCache, 404
       return resp(sr, '404 Not Found (from volume server)')
 
-    # TODO: in chunks, don't waste RAM
+    # TODO: read in chunks, don't waste RAM
     if 'HTTP_RANGE' in env:
       b,e = [int(x) for x in env['HTTP_RANGE'].split("=")[1].split("-")]
       f.seek(b)

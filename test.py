@@ -4,6 +4,14 @@ import hashlib
 import binascii
 import unittest
 import requests
+import time
+import timeit
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
+logging.basicConfig(format='%(name)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class TestMiniKeyValue(unittest.TestCase):
   def get_fresh_key(self):
@@ -82,6 +90,40 @@ class TestMiniKeyValue(unittest.TestCase):
     key = self.get_fresh_key()
     r = requests.get(key)
     self.assertEqual(r.status_code, 404)
+
+  def test_put_speed(self):
+    PUT_COUNT = 64
+    keys = [self.get_fresh_key() for i in range(PUT_COUNT)]
+
+    def put(x):
+      r = requests.put(x, data=b"onyou-"+x)
+      return r.status_code
+
+    def verify(x):
+      r = requests.get(x)
+      return r.status_code, r.content
+
+    with ThreadPoolExecutor(max_workers=PUT_COUNT) as executor:
+      start = time.perf_counter()
+      # verify writes
+      for status_code in executor.map(put, keys):
+        self.assertEqual(status_code, 201)
+      elapsed = time.perf_counter()-start
+
+    logger.debug("%.2f ms for %d writes (%.2f writes/second)" %
+      (elapsed*1000., PUT_COUNT, PUT_COUNT/elapsed))
+
+    with ThreadPoolExecutor(max_workers=PUT_COUNT) as executor:
+      start = time.perf_counter()
+      # verify reads
+      for x,o in zip(keys, executor.map(verify, keys)):
+        status_code, text = o
+        self.assertEqual(status_code, 200)
+        self.assertEqual(text, b"onyou-"+x)
+      elapsed = time.perf_counter()-start
+
+    logger.debug("%.2f ms for %d reads (%.2f reads/second)" %
+      (elapsed*1000., PUT_COUNT, PUT_COUNT/elapsed))
 
 if __name__ == '__main__':
   unittest.main()
