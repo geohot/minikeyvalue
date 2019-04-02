@@ -51,6 +51,7 @@ def master(env, sr):
     # POST is called by the volume servers to write to the database
     flen = int(env.get('CONTENT_LENGTH', '0'))
     print("posting", key, flen)
+    # TODO: overwrite shouldn't be allowed, need transactions
     if flen > 0:
       db.put(key.encode('utf-8'), env['wsgi.input'].read())
     else:
@@ -135,17 +136,18 @@ if os.environ['TYPE'] == "volume":
 def volume(env, sr):
   host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
   key = env['PATH_INFO']
+  master_url = "http://"+env['QUERY_STRING']+key
 
   if env['REQUEST_METHOD'] == 'PUT':
     if fc.exists(key):
-      req = requests.post("http://"+env['QUERY_STRING']+key, json={"volume": host})
+      req = requests.post(master_url, json={"volume": host})
       # can't write, already exists
       return resp(sr, '409 Conflict')
 
     flen = int(env.get('CONTENT_LENGTH', '0'))
     if flen > 0:
       fc.put(key, env['wsgi.input'])
-      req = requests.post("http://"+env['QUERY_STRING']+key, json={"volume": host})
+      req = requests.post(master_url, json={"volume": host})
       if req.status_code == 200:
         return resp(sr, '201 Created')
       else:
@@ -155,7 +157,7 @@ def volume(env, sr):
       return resp(sr, '411 Length Required')
 
   if env['REQUEST_METHOD'] == 'DELETE':
-    req = requests.post("http://"+env['QUERY_STRING']+key, data='')
+    req = requests.post(master_url, data='')
     if req.status_code == 200:
       if fc.delete(key):
         return resp(sr, '200 OK')
