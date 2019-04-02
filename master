@@ -2,6 +2,5 @@
 export VOLUMES=${1:-localhost:3001}
 export DB=${2:-/tmp/cachedb/}
 export TYPE=master
-# TODO: With leveldb, multiprocess has been disabled
-uwsgi --http :${PORT:-3000} --wsgi-file server.py --callable master # --master --processes 4
+uwsgi --http :${PORT:-3000} --wsgi-file server.py --callable master --master --processes 4
 

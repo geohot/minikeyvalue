@@ -18,20 +18,24 @@ def resp(start_response, code, headers=[('Content-type', 'text/plain')], body=b'
 
 # *** Master Server ***
 
-# TODO: don't use leveldb cause it's single process
+# cache is backed by lmdb
 class SimpleKV(object):
   def __init__(self, fn):
-    import plyvel
-    self.db = plyvel.DB(fn, create_if_missing=True)
+    import lmdb
+    self.env = lmdb.open(fn)
 
   def get(self, k):
-    return self.db.get(k)
+    with self.env.begin() as txn:
+      ret = txn.get(k)
+    return ret
 
   def put(self, k, v):
-    self.db.put(k, v)
+    with self.env.begin(write=True) as txn:
+      txn.put(k, v)
 
   def delete(self, k):
-    self.db.delete(k)
+    with self.env.begin(write=True) as txn:
+      txn.delete(k)
 
 
 if os.environ['TYPE'] == "master":

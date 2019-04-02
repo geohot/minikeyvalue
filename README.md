@@ -2,9 +2,11 @@
 
 [![Build Status](https://travis-ci.org/geohot/minikeyvalue.svg?branch=master)](https://travis-ci.org/geohot/minikeyvalue)
 
-A ~200 line (not including tests!) non-proxying distributed key value store. Optimized for reading files between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to 1 billion files.
+Fed up with the complexity of distributed filesystems?
 
-Even if this code is crap, the on disk format is super simple! It's like the nginx cache with MD5 hashes for filenames and the real name in an xattr.
+minikeyvalue is a ~200 line (not including tests!) non-proxying distributed key value store. Optimized for reading files between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
+
+Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage. It's like the nginx cache with MD5 hashes for filenames and the real name in an xattr.
 
 ### API
 
