@@ -6,6 +6,9 @@ import random
 import socket
 import hashlib
 import tempfile
+import requests
+
+# *** Global ***
 
 print("hello", os.environ['TYPE'], os.getpid())
 
@@ -26,18 +29,21 @@ if os.environ['TYPE'] == "master":
   db = plyvel.DB(os.environ['DB'], create_if_missing=True)
 
 def master(env, sr):
-  key = env['REQUEST_URI']
+  host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
+  key = env['PATH_INFO']
 
   if env['REQUEST_METHOD'] == 'POST':
     # POST is called by the volume servers to write to the database
     flen = int(env.get('CONTENT_LENGTH', '0'))
+    print("posting", key, flen)
     if flen > 0:
-      db.put(key.encode('utf-8'), env['wsgi.input'].read(), sync=True)
+      db.put(key.encode('utf-8'), env['wsgi.input'].read())
     else:
       db.delete(key.encode('utf-8'))
     return resp(sr, '200 OK')
 
   metakey = db.get(key.encode('utf-8'))
+  print(key, metakey)
   if metakey is None:
     if env['REQUEST_METHOD'] == 'PUT':
       # handle putting key
@@ -55,7 +61,7 @@ def master(env, sr):
     volume = meta['volume']
 
   # send the redirect
-  headers = [('Location', 'http://%s%s' % (volume, key))]
+  headers = [('Location', 'http://%s%s?%s' % (volume, key, host))]
 
   return resp(sr, '307 Temporary Redirect', headers)
 
@@ -71,7 +77,7 @@ class FileCache(object):
     print("FileCache in %s" % basedir)
 
   def k2p(self, key, mkdir_ok=False):
-    key = hashlib.md5(key).hexdigest()
+    key = hashlib.md5(key.encode('utf-8')).hexdigest()
 
     # 2 layers deep in nginx world
     path = self.basedir+"/"+key[0:2]+"/"+key[0:4]
@@ -85,7 +91,12 @@ class FileCache(object):
     return os.path.isfile(self.k2p(key))
 
   def delete(self, key):
-    os.unlink(self.k2p(key))
+    try:
+      os.unlink(self.k2p(key))
+      return True
+    except FileNotFoundError:
+      pass
+    return False
 
   def get(self, key):
     return open(self.k2p(key), "rb")
@@ -95,35 +106,49 @@ class FileCache(object):
       # TODO: in chunks, don't waste RAM
       f.write(stream.read())
 
-      # save the real name in xattr in case we rebuild it
-      xattr.setxattr(f.name, 'user.key', key)
+      # save the real name in xattr in case we rebuild cache
+      xattr.setxattr(f.name, 'user.key', key.encode('utf-8'))
 
       # TODO: check hash
       os.rename(f.name, self.k2p(key, True))
 
 if os.environ['TYPE'] == "volume":
-  host = os.environ['HOST'] + ":" + os.environ['PORT']
-  print(host)
 
   # create the filecache
   fc = FileCache(os.environ['VOLUME'])
 
 def volume(env, sr):
-  key = env['REQUEST_URI'].encode('utf-8')
+  host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
+  key = env['PATH_INFO']
 
   if env['REQUEST_METHOD'] == 'PUT':
     if fc.exists(key):
+      req = requests.post("http://"+env['QUERY_STRING']+key, json={"volume": host})
       # can't write, already exists
       return resp(sr, '409 Conflict')
 
     flen = int(env.get('CONTENT_LENGTH', '0'))
     if flen > 0:
       fc.put(key, env['wsgi.input'])
-      # notify database
-
-      return resp(sr, '201 Created')
+      req = requests.post("http://"+env['QUERY_STRING']+key, json={"volume": host})
+      if req.status_code == 200:
+        return resp(sr, '201 Created')
+      else:
+        fc.delete(key)
+        return resp(sr, '500 Internal Server Error')
     else:
       return resp(sr, '411 Length Required')
+
+  if env['REQUEST_METHOD'] == 'DELETE':
+    req = requests.post("http://"+env['QUERY_STRING']+key, data='')
+    if req.status_code == 200:
+      if fc.delete(key):
+        return resp(sr, '200 OK')
+      else:
+        # file wasn't on our disk
+        return resp(sr, '500 Internal Server Error (not on disk)')
+    else:
+      return resp(sr, '500 Internal Server Error (master db write fail)')
 
   if not fc.exists(key):
     # key not in the FileCache, 404
@@ -132,8 +157,4 @@ def volume(env, sr):
   if env['REQUEST_METHOD'] == 'GET':
     # TODO: in chunks, don't waste RAM
     return resp(sr, '200 OK', body=fc.get(key).read())
-
-  if env['REQUEST_METHOD'] == 'DELETE':
-    fc.delete(key)
-    return resp(sr, '200 OK')
 
