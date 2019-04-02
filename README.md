@@ -31,12 +31,12 @@ PORT=3002 ./volume /tmp/volume2/
 
 ```
 # put "bigswag" in key "wehave"
-curl -X PUT -d bigswag localhost:3000/wehave
+curl -L -X PUT -d bigswag localhost:3000/wehave
 
 # get key "wehave" (should be "bigswag")
-curl localhost:3000/wehave
+curl -L localhost:3000/wehave
 
 # delete key "wehave"
-curl -X DELETE localhost:3000/wehave
+curl -L -X DELETE localhost:3000/wehave
 ```
 

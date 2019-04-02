@@ -4,8 +4,8 @@ services:
   - docker
 
 before_install:
-  - ./docker.sh
+  - docker build -t minikeyvalue -f Dockerfile .
 
 script:
-  - ./test.py
+  - docker run --hostname localhost minikeyvalue bash -c "cd /tmp && (./bringup.sh &) && ./test.py"
 
