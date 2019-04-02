@@ -171,5 +171,13 @@ def volume(env, sr):
 
   if env['REQUEST_METHOD'] == 'GET':
     # TODO: in chunks, don't waste RAM
-    return resp(sr, '200 OK', body=fc.get(key).read())
+    if 'HTTP_RANGE' in env:
+      b,e = [int(x) for x in env['HTTP_RANGE'].split("=")[1].split("-")]
+      f = fc.get(key)
+      f.seek(b)
+      ret = f.read(e-b)
+      f.close()
+      return resp(sr, '200 OK', body=ret)
+    else:
+      return resp(sr, '200 OK', body=fc.get(key).read())
 

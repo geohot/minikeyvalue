@@ -68,7 +68,16 @@ class TestMiniKeyValue(unittest.TestCase):
     for k in keys:
       r = requests.delete(k)
       self.assertEqual(r.status_code, 200)
-      
+
+  def test_range_request(self):
+    key = self.get_fresh_key()
+    r = requests.put(key, data="onyou")
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key, headers={"Range": "bytes=2-5"})
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.text, "you")
+
 if __name__ == '__main__':
   unittest.main()
 
