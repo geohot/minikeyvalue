@@ -32,7 +32,7 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 200)
 
     r = requests.get(key)
-    self.assertNotEqual(r.status_code, 200)
+    self.assertEqual(r.status_code, 404)
 
   def test_doubledelete(self):
     key = self.get_fresh_key()
@@ -77,6 +77,11 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.get(key, headers={"Range": "bytes=2-5"})
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.text, "you")
+
+  def test_nonexistent_key(self):
+    key = self.get_fresh_key()
+    r = requests.get(key)
+    self.assertEqual(r.status_code, 404)
 
 if __name__ == '__main__':
   unittest.main()

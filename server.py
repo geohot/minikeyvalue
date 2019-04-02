@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import lmdb
 import xattr
 import random
 import socket
@@ -18,26 +19,6 @@ def resp(start_response, code, headers=[('Content-type', 'text/plain')], body=b'
 
 # *** Master Server ***
 
-# cache is backed by lmdb
-class SimpleKV(object):
-  def __init__(self, fn):
-    import lmdb
-    self.env = lmdb.open(fn)
-
-  def get(self, k):
-    with self.env.begin() as txn:
-      ret = txn.get(k)
-    return ret
-
-  def put(self, k, v):
-    with self.env.begin(write=True) as txn:
-      txn.put(k, v)
-
-  def delete(self, k):
-    with self.env.begin(write=True) as txn:
-      txn.delete(k)
-
-
 if os.environ['TYPE'] == "master":
   # check on volume servers
   volumes = os.environ['VOLUMES'].split(",")
@@ -45,24 +26,30 @@ if os.environ['TYPE'] == "master":
   for v in volumes:
     print(v)
 
-  db = SimpleKV(os.environ['DB'])
+  # cache is backed by lmdb
+  db = lmdb.open(os.environ['DB'])
 
 def master(env, sr):
   host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
   key = env['PATH_INFO']
+  bkey = key.encode('utf-8')
 
+  # POST is called by the volume servers to write to the master database
   if env['REQUEST_METHOD'] == 'POST':
-    # POST is called by the volume servers to write to the database
     flen = int(env.get('CONTENT_LENGTH', '0'))
     print("posting", key, flen)
-    # TODO: overwrite shouldn't be allowed, need transactions
-    if flen > 0:
-      db.put(key.encode('utf-8'), env['wsgi.input'].read())
-    else:
-      db.delete(key.encode('utf-8'))
+    # TODO: overwrite shouldn't be allowed
+    with db.begin(write=True) as txn:
+      if flen > 0:
+        txn.put(bkey, env['wsgi.input'].read())
+      else:
+        txn.delete(bkey)
     return resp(sr, '200 OK')
 
-  metakey = db.get(key.encode('utf-8'))
+  # fetch the data from the lmdb
+  with db.begin() as txn:
+    metakey = txn.get(bkey)
+
   print(key, metakey)
   if metakey is None:
     if env['REQUEST_METHOD'] == 'PUT':
@@ -119,7 +106,10 @@ class FileCache(object):
     return False
 
   def get(self, key):
-    return open(self.k2p(key), "rb")
+    try:
+      return open(self.k2p(key), "rb")
+    except FileNotFoundError:
+      return None
 
   def put(self, key, stream):
     with tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=False) as f:
@@ -143,11 +133,6 @@ def volume(env, sr):
   master_url = "http://"+env['QUERY_STRING']+key
 
   if env['REQUEST_METHOD'] == 'PUT':
-    if fc.exists(key):
-      req = requests.post(master_url, json={"volume": host})
-      # can't write, already exists
-      return resp(sr, '409 Conflict')
-
     flen = int(env.get('CONTENT_LENGTH', '0'))
     if flen > 0:
       fc.put(key, env['wsgi.input'])
@@ -155,6 +140,7 @@ def volume(env, sr):
       if req.status_code == 200:
         return resp(sr, '201 Created')
       else:
+        # roll back the best we can
         fc.delete(key)
         return resp(sr, '500 Internal Server Error')
     else:
@@ -171,19 +157,21 @@ def volume(env, sr):
     else:
       return resp(sr, '500 Internal Server Error (master db write fail)')
 
-  if not fc.exists(key):
-    # key not in the FileCache, 404
-    return resp(sr, '404 Not Found')
-
   if env['REQUEST_METHOD'] == 'GET':
+    f = fc.get(key)
+    if f is None:
+      # key not in the FileCache, 404
+      return resp(sr, '404 Not Found (from volume server)')
+
     # TODO: in chunks, don't waste RAM
     if 'HTTP_RANGE' in env:
       b,e = [int(x) for x in env['HTTP_RANGE'].split("=")[1].split("-")]
-      f = fc.get(key)
       f.seek(b)
       ret = f.read(e-b)
-      f.close()
-      return resp(sr, '200 OK', body=ret)
     else:
-      return resp(sr, '200 OK', body=fc.get(key).read())
+      ret = f.read()
+
+    # close file and send back
+    f.close()
+    return resp(sr, '200 OK', body=ret)
 
