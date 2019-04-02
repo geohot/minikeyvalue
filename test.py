@@ -7,11 +7,19 @@ import requests
 import time
 import timeit
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 logging.basicConfig(format='%(name)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+def put(x):
+  r = requests.put(x, data=b"onyou-"+x)
+  return r.status_code
+
+def get(x):
+  r = requests.get(x)
+  return r.status_code, r.content
 
 class TestMiniKeyValue(unittest.TestCase):
   def get_fresh_key(self):
@@ -93,19 +101,11 @@ class TestMiniKeyValue(unittest.TestCase):
 
   def test_put_speed(self):
     PUT_COUNT = 64
+    MAX_WORKERS = 8
     keys = [self.get_fresh_key() for i in range(PUT_COUNT)]
 
-    def put(x):
-      r = requests.put(x, data=b"onyou-"+x)
-      return r.status_code
-
-    def verify(x):
-      r = requests.get(x)
-      return r.status_code, r.content
-
-    with ThreadPoolExecutor(max_workers=PUT_COUNT) as executor:
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
       start = time.perf_counter()
-      # verify writes
       for status_code in executor.map(put, keys):
         self.assertEqual(status_code, 201)
       elapsed = time.perf_counter()-start
@@ -113,10 +113,9 @@ class TestMiniKeyValue(unittest.TestCase):
     logger.debug("%.2f ms for %d writes (%.2f writes/second)" %
       (elapsed*1000., PUT_COUNT, PUT_COUNT/elapsed))
 
-    with ThreadPoolExecutor(max_workers=PUT_COUNT) as executor:
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
       start = time.perf_counter()
-      # verify reads
-      for x,o in zip(keys, executor.map(verify, keys)):
+      for x,o in zip(keys, executor.map(get, keys)):
         status_code, text = o
         self.assertEqual(status_code, 200)
         self.assertEqual(text, b"onyou-"+x)
