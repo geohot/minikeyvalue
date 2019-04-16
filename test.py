@@ -91,6 +91,21 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.get(key)
     self.assertEqual(r.status_code, 404)
 
+  def test_large_key(self):
+    key = self.get_fresh_key()
+
+    data = b"a"*(16*1024*1024)
+
+    r = requests.put(key, data=data)
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key)
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.text, data)
+
+    r = requests.delete(key)
+    self.assertEqual(r.status_code, 200)
+
   def test_put_speed(self):
     PUT_COUNT = 64
     MAX_WORKERS = 8
