@@ -39,19 +39,20 @@ def master(env, sr):
   if env['REQUEST_METHOD'] == 'POST':
     flen = int(env.get('CONTENT_LENGTH', '0'))
     #print("posting", key, flen)
+    resp_string = '200 OK'
     with db.begin(write=True) as txn:
       metakey = txn.get(bkey)
       if flen > 0:
         if metakey is None:
           txn.put(bkey, env['wsgi.input'].read())
         else:
-          return resp(sr, '409 Conflict')
+          resp_string = '409 Conflict'
       else:
         if metakey is not None:
           txn.delete(bkey)
         else:
-          return resp(sr, '404 Not Found (delete on master)')
-    return resp(sr, '200 OK')
+          resp_string = '404 Not Found (delete on master)'
+    return resp(sr, resp_string)
 
   # fetch the data from the lmdb
   with db.begin() as txn:
