@@ -14,7 +14,11 @@ import requests
 
 print("hello", os.environ['TYPE'], os.getpid())
 
-def resp(start_response, code, headers=[('Content-type', 'text/plain')], body=b''):
+def resp(start_response, code, headers=None, body=b''):
+  if headers is None:
+    headers = [('Content-Type', 'text/plain')]
+  #headers.append(('Connection', 'close'))
+  headers.append(('Content-Length', str(len(body))))
   start_response(code, headers)
   return [body]
 
@@ -144,6 +148,10 @@ if os.environ['TYPE'] == "volume":
   # create the filecache
   fc = FileCache(os.environ['VOLUME'])
 
+def remote(master_url, data):
+  req = requests.post(master_url, data=data)
+  return req.status_code == 200
+
 def volume(env, sr):
   host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
   key = env['PATH_INFO']
@@ -153,8 +161,7 @@ def volume(env, sr):
     flen = int(env.get('CONTENT_LENGTH', '0'))
     if flen > 0:
       fc.put(key, env['wsgi.input'])
-      req = requests.post(master_url, json={"volume": host})
-      if req.status_code == 200:
+      if remote(master_url, json.dumps({"volume": host})):
         return resp(sr, '201 Created')
       else:
         # roll back the best we can
@@ -164,8 +171,7 @@ def volume(env, sr):
       return resp(sr, '411 Length Required')
 
   if env['REQUEST_METHOD'] == 'DELETE':
-    req = requests.post(master_url, data='')
-    if req.status_code == 200:
+    if remote(master_url, ''):
       if fc.delete(key):
         return resp(sr, '200 OK')
       else:
