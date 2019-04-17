@@ -21,6 +21,7 @@ def resp(start_response, code, headers=None, body=b''):
   start_response(code, headers)
   return [body]
 
+# assert key == key2path(base64.b64decode(os.path.basename(key)))
 def key2path(key):
   mkey = hashlib.md5(key).hexdigest()
   b64key = base64.b64encode(key).decode("utf-8")
