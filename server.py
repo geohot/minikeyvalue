@@ -2,7 +2,7 @@ import os
 import time
 import json
 import lmdb
-import xattr
+import base64
 import random
 import shutil
 import socket
@@ -12,7 +12,8 @@ import requests
 
 # *** Global ***
 
-print("hello", os.environ['TYPE'], os.getpid())
+stype = os.environ.get("TYPE", None)
+print("hello", stype, os.getpid())
 
 def resp(start_response, code, headers=None, body=b''):
   headers = [('Content-Type', 'text/plain')] if headers is None else headers
@@ -56,8 +57,16 @@ class LmdbCache(object):
       else:
         return False
 
+def key2path(key):
+  bkey = key.encode('utf-8')
+  mkey = hashlib.md5(bkey).hexdigest()
+  b64key = base64.b64encode(bkey).decode("utf-8")
 
-if os.environ['TYPE'] == "master":
+  # 2 byte layers deep, meaning a fanout of 256
+  # optimized for 2^24 = 16M files per volume server
+  return "/%s/%s/%s" % (mkey[0:2], mkey[2:4], b64key)
+
+if stype == "master":
   volumes = os.environ['VOLUMES'].split(",")
   print("volume servers:", volumes)
   kc = LmdbCache(os.environ['DB'])
@@ -72,7 +81,7 @@ def master(env, sr):
       return resp(sr, '404 Not Found')
 
     # send the redirect
-    remote = 'http://%s%s' % (meta['volume'], key)
+    remote = 'http://%s%s' % (meta['volume'], key2path(key))
     return resp(sr, '302 Found', headers=[('Location', remote)])
 
   # proxy for DELETE
@@ -83,7 +92,7 @@ def master(env, sr):
       return resp(sr, '404 Not Found (delete on master)')
 
     # now do the remote delete
-    remote = 'http://%s%s' % (meta['volume'], key)
+    remote = 'http://%s%s' % (meta['volume'], key2path(key))
     req = requests.delete(remote)
 
     if req.status_code == 200:
@@ -110,7 +119,7 @@ def master(env, sr):
     # now do the remote write
     # TODO: stream this
     dat = env['wsgi.input'].read()
-    remote = 'http://%s%s' % (volume, key)
+    remote = 'http://%s%s' % (volume, key2path(key))
     req = requests.put(remote, dat)
     if req.status_code != 201:
       return resp(sr, '500 Internal Server Error (remote write failed)')
@@ -125,7 +134,7 @@ def master(env, sr):
     return resp(sr, '201 Created')
 
 
-# *** Volume Server ***
+# *** Volume Server (can be replaced by nginx) ***
 
 class FileCache(object):
   # this is a single computer on disk key value store
@@ -144,16 +153,17 @@ class FileCache(object):
     print("FileCache in %s" % basedir)
 
   def _k2p(self, key, mkdir_ok=False):
-    key = hashlib.md5(key.encode('utf-8')).hexdigest()
+    # well formed key, not actually required checks
+    assert key[0] == '/'
+    assert key[3] == '/'
+    assert key[6] == '/'
+    assert '/' not in key[7:]
+    assert '..' not in key
 
-    # 2 byte layers deep, meaning a fanout of 256
-    # optimized for 2^24 = 16M files per volume server
-    path = self.basedir+"/"+key[0:2]+"/"+key[0:4]
-    if not os.path.isdir(path) and mkdir_ok:
-      # exist ok is fine, could be a race
-      os.makedirs(path, exist_ok=True)
-
-    return os.path.join(path, key)
+    path = self.basedir + key
+    if mkdir_ok:
+      os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
 
   def delete(self, key):
     try:
@@ -174,11 +184,6 @@ class FileCache(object):
     try:
       with tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=True) as f:
         shutil.copyfileobj(stream, f)
-
-        # save the real name in xattr in case we rebuild cache
-        xattr.setxattr(f.name, 'user.key', key.encode('utf-8'))
-
-        # TODO: check hash
         os.rename(f.name, self._k2p(key, True))
         ret = True
     except FileNotFoundError:
@@ -186,7 +191,7 @@ class FileCache(object):
       return ret
     return False
 
-if os.environ['TYPE'] == "volume":
+if stype == "volume":
   # create the filecache
   fc = FileCache(os.environ['VOLUME'])
 

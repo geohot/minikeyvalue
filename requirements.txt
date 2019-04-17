@@ -1,5 +1,4 @@
 uWSGI==2.0.18
-xattr==0.9.6
 requests==2.20.0
 lmdb==0.94
 
