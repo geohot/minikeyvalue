@@ -15,9 +15,7 @@ import requests
 print("hello", os.environ['TYPE'], os.getpid())
 
 def resp(start_response, code, headers=None, body=b''):
-  if headers is None:
-    headers = [('Content-Type', 'text/plain')]
-  #headers.append(('Connection', 'close'))
+  headers = [('Content-Type', 'text/plain')] if headers is None else headers
   headers.append(('Content-Length', str(len(body))))
   start_response(code, headers)
   return [body]
@@ -35,53 +33,76 @@ if os.environ['TYPE'] == "master":
   db = lmdb.open(os.environ['DB'])
 
 def master(env, sr):
-  host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
   key = env['PATH_INFO']
   bkey = key.encode('utf-8')
 
-  # POST is called by the volume servers to write to the master database
-  if env['REQUEST_METHOD'] == 'POST':
-    flen = int(env.get('CONTENT_LENGTH', '0'))
-    #print("posting", key, flen)
-    resp_string = '200 OK'
+  # redirect 302 for GET
+  if env['REQUEST_METHOD'] == 'GET':
+    with db.begin() as txn:
+      metakey = txn.get(bkey)
+      if metakey is None:
+        # this key doesn't exist and we aren't trying to create it
+        return resp(sr, '404 Not Found')
+      volume = json.loads(metakey.decode('utf-8'))['volume']
+
+    # send the redirect
+    remote = 'http://%s%s' % (volume, key)
+    headers = [('Location', remote)]
+    return resp(sr, '302 Found', headers)
+
+  # proxy for DELETE
+  if env['REQUEST_METHOD'] == 'DELETE':
+    # first do the local delete while fetching the volume
     with db.begin(write=True) as txn:
       metakey = txn.get(bkey)
-      if flen > 0:
-        if metakey is None:
-          txn.put(bkey, env['wsgi.input'].read())
-        else:
-          resp_string = '409 Conflict'
+      if metakey is not None:
+        volume = json.loads(metakey.decode('utf-8'))['volume']
+        txn.delete(bkey)
       else:
-        if metakey is not None:
-          txn.delete(bkey)
-        else:
-          resp_string = '404 Not Found (delete on master)'
-    return resp(sr, resp_string)
+        return resp(sr, '404 Not Found (delete on master)')
 
-  # fetch the data from the lmdb
-  with db.begin() as txn:
-    metakey = txn.get(bkey)
+    # now do the remote delete
+    remote = 'http://%s%s' % (volume, key)
+    req = requests.delete(remote)
 
-  if metakey is None:
-    if env['REQUEST_METHOD'] == 'PUT':
-      # handle putting key
-      # TODO: make volume selection intelligent
-      volume = random.choice(volumes)
+    if req.status_code == 200:
+      return resp(sr, '200 OK')
     else:
-      # this key doesn't exist and we aren't trying to create it
-      return resp(sr, '404 Not Found')
-  else:
-    # key found 
-    if env['REQUEST_METHOD'] == 'PUT':
-      # we are trying to put it. delete first!
+      # TODO: think through this case more
+      return resp(sr, '500 Internal Server Error (remote delete failed)')
+
+  # proxy for PUT
+  if env['REQUEST_METHOD'] == 'PUT':
+    # first check that we don't already have this
+    with db.begin() as txn:
+      metakey = txn.get(bkey)
+    if metakey is not None:
       return resp(sr, '409 Conflict')
-    meta = json.loads(metakey.decode('utf-8'))
-    volume = meta['volume']
 
-  # send the redirect
-  headers = [('Location', 'http://%s%s?%s' % (volume, key, host))]
+    # TODO: make volume selection intelligent
+    volume = random.choice(volumes)
 
-  return resp(sr, '307 Temporary Redirect', headers)
+    # now do the remote write
+    # TODO: stream this
+    remote = 'http://%s%s' % (volume, key)
+    dat = env['wsgi.input'].read()
+    req = requests.put(remote, dat)
+    if req.status_code != 201:
+      return resp(sr, '500 Internal Server Error (remote write failed)')
+
+    # now do the local write (after it's safe on the remote server)
+    with db.begin(write=True) as txn:
+      metakey = txn.get(bkey)
+      if metakey is None:
+        txn.put(bkey, json.dumps({"volume": volume}).encode('utf-8'))
+      else:
+        # someone else wrote in the mean time
+        requests.delete(remote)
+        return resp(sr, '409 Conflict')
+
+    # both writes succeed
+    return resp(sr, '201 Created')
+
 
 # *** Volume Server ***
 
@@ -144,7 +165,6 @@ class FileCache(object):
     os.rename(f.name, self.k2p(key, True))
 
 if os.environ['TYPE'] == "volume":
-
   # create the filecache
   fc = FileCache(os.environ['VOLUME'])
 
@@ -153,7 +173,6 @@ def remote(master_url, data):
   return req.status_code == 200
 
 def volume(env, sr):
-  host = env['SERVER_NAME'] + ":" + env['SERVER_PORT']
   key = env['PATH_INFO']
   master_url = "http://"+env['QUERY_STRING']+key
 
@@ -161,24 +180,16 @@ def volume(env, sr):
     flen = int(env.get('CONTENT_LENGTH', '0'))
     if flen > 0:
       fc.put(key, env['wsgi.input'])
-      if remote(master_url, json.dumps({"volume": host})):
-        return resp(sr, '201 Created')
-      else:
-        # roll back the best we can
-        fc.delete(key)
-        return resp(sr, '500 Internal Server Error (master db put fail)')
+      return resp(sr, '201 Created')
     else:
       return resp(sr, '411 Length Required')
 
   if env['REQUEST_METHOD'] == 'DELETE':
-    if remote(master_url, ''):
-      if fc.delete(key):
-        return resp(sr, '200 OK')
-      else:
-        # file wasn't on our disk
-        return resp(sr, '500 Internal Server Error (not on disk)')
+    if fc.delete(key):
+      return resp(sr, '200 OK')
     else:
-      return resp(sr, '500 Internal Server Error (master db write fail)')
+      # file wasn't on our disk
+      return resp(sr, '500 Internal Server Error (not on disk)')
 
   if env['REQUEST_METHOD'] == 'GET':
     f = fc.get(key)

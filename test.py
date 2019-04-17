@@ -101,7 +101,7 @@ class TestMiniKeyValue(unittest.TestCase):
 
     r = requests.get(key)
     self.assertEqual(r.status_code, 200)
-    self.assertEqual(r.text, data)
+    self.assertEqual(r.content, data)
 
     r = requests.delete(key)
     self.assertEqual(r.status_code, 200)
