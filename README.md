@@ -13,8 +13,10 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 - GET /key
   - Supports range requests.
   - 302 redirect to volume server.
-- {PUT, DELETE} /key
-  - Blocks. 200 = written, anything else = nothing happened.
+- PUT /key
+  - Blocks. 201 = written, anything else = nothing happened.
+- DELETE /key
+  - Blocks. 200 = deleted, anything else = unknown
 
 ### Start Master Server (default port 3000)
 

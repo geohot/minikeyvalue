@@ -22,6 +22,42 @@ def resp(start_response, code, headers=None, body=b''):
 
 # *** Master Server ***
 
+class KeyCache(object):
+  # this is a single computer on disk key value store optimized for small things
+
+  def __init__(self, basedir):
+    # cache is backed by lmdb
+    self.db = lmdb.open(os.environ['DB'])
+
+  def get(self, key):
+    bkey = key.encode('utf-8')
+    with self.db.begin() as txn:
+      metakey = txn.get(bkey)
+      if metakey is None:
+        return None
+      return json.loads(metakey.decode('utf-8'))
+
+  def delete(self, key):
+    bkey = key.encode('utf-8')
+    with self.db.begin(write=True) as txn:
+      metakey = txn.get(bkey)
+      if metakey is not None:
+        ret = json.loads(metakey.decode('utf-8'))
+        txn.delete(bkey)
+        return ret    # return last value of the key
+    return None
+
+  def put(self, key, dat):
+    bkey = key.encode('utf-8')
+    with self.db.begin(write=True) as txn:
+      metakey = txn.get(bkey)
+      if metakey is None:
+        txn.put(bkey, json.dumps(dat).encode('utf-8'))
+        return True
+      else:
+        return False
+
+
 if os.environ['TYPE'] == "master":
   # check on volume servers
   volumes = os.environ['VOLUMES'].split(",")
@@ -29,54 +65,44 @@ if os.environ['TYPE'] == "master":
   for v in volumes:
     print(v)
 
-  # cache is backed by lmdb
-  db = lmdb.open(os.environ['DB'])
+  kc = KeyCache(os.environ['DB'])
+
 
 def master(env, sr):
   key = env['PATH_INFO']
-  bkey = key.encode('utf-8')
 
-  # redirect 302 for GET
+  # 302 redirect for GET
   if env['REQUEST_METHOD'] == 'GET':
-    with db.begin() as txn:
-      metakey = txn.get(bkey)
-      if metakey is None:
-        # this key doesn't exist and we aren't trying to create it
-        return resp(sr, '404 Not Found')
-      volume = json.loads(metakey.decode('utf-8'))['volume']
+    meta = kc.get(key)
+    if meta is None:
+      return resp(sr, '404 Not Found')
 
     # send the redirect
-    remote = 'http://%s%s' % (volume, key)
-    headers = [('Location', remote)]
-    return resp(sr, '302 Found', headers)
+    remote = 'http://%s%s' % (meta['volume'], key)
+    return resp(sr, '302 Found', headers=[('Location', remote)])
 
   # proxy for DELETE
   if env['REQUEST_METHOD'] == 'DELETE':
     # first do the local delete while fetching the volume
-    with db.begin(write=True) as txn:
-      metakey = txn.get(bkey)
-      if metakey is not None:
-        volume = json.loads(metakey.decode('utf-8'))['volume']
-        txn.delete(bkey)
-      else:
-        return resp(sr, '404 Not Found (delete on master)')
+    meta = kc.delete(key)
+    if meta is None:
+      return resp(sr, '404 Not Found (delete on master)')
 
     # now do the remote delete
-    remote = 'http://%s%s' % (volume, key)
+    remote = 'http://%s%s' % (meta['volume'], key)
     req = requests.delete(remote)
 
     if req.status_code == 200:
       return resp(sr, '200 OK')
     else:
       # TODO: think through this case more
+      # worst case it wastes space on the remote
       return resp(sr, '500 Internal Server Error (remote delete failed)')
 
   # proxy for PUT
   if env['REQUEST_METHOD'] == 'PUT':
     # first check that we don't already have this
-    with db.begin() as txn:
-      metakey = txn.get(bkey)
-    if metakey is not None:
+    if kc.get(key) is not None:
       return resp(sr, '409 Conflict')
 
     # TODO: make volume selection intelligent
@@ -91,14 +117,10 @@ def master(env, sr):
       return resp(sr, '500 Internal Server Error (remote write failed)')
 
     # now do the local write (after it's safe on the remote server)
-    with db.begin(write=True) as txn:
-      metakey = txn.get(bkey)
-      if metakey is None:
-        txn.put(bkey, json.dumps({"volume": volume}).encode('utf-8'))
-      else:
-        # someone else wrote in the mean time
-        requests.delete(remote)
-        return resp(sr, '409 Conflict')
+    if not kc.put(key, {"volume": volume}):
+      # someone else wrote in the mean time
+      requests.delete(remote)
+      return resp(sr, '409 Conflict')
 
     # both writes succeed
     return resp(sr, '201 Created')
@@ -168,13 +190,8 @@ if os.environ['TYPE'] == "volume":
   # create the filecache
   fc = FileCache(os.environ['VOLUME'])
 
-def remote(master_url, data):
-  req = requests.post(master_url, data=data)
-  return req.status_code == 200
-
 def volume(env, sr):
   key = env['PATH_INFO']
-  master_url = "http://"+env['QUERY_STRING']+key
 
   if env['REQUEST_METHOD'] == 'PUT':
     flen = int(env.get('CONTENT_LENGTH', '0'))
