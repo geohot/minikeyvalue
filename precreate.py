@@ -2,7 +2,7 @@
 import os, sys
 
 if __name__ == "__main__":
-  basedir = os.path.realpath(sys.argv[1])
+  basedir = sys.argv[1]
   tmpdir = os.path.join(basedir, "tmp")
 
   if not os.path.isdir(tmpdir):
