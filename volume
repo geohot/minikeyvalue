@@ -1,5 +1,7 @@
 #!/bin/bash
 export VOLUME=${1:-/tmp/volume1/}
 export TYPE=volume
+
+./precreate_directories.py $VOLUME
 uwsgi --disable-logging --http :${PORT:-3001} --wsgi-file server.py --callable volume --master --processes 4
 
