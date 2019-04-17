@@ -21,6 +21,14 @@ def resp(start_response, code, headers=None, body=b''):
   start_response(code, headers)
   return [body]
 
+def key2path(key):
+  mkey = hashlib.md5(key).hexdigest()
+  b64key = base64.b64encode(key).decode("utf-8")
+
+  # 2 byte layers deep, meaning a fanout of 256
+  # optimized for 2^24 = 16M files per volume server
+  return "/%s/%s/%s" % (mkey[0:2], mkey[2:4], b64key)
+
 # *** Master Server ***
 
 class LmdbCache(object):
@@ -30,41 +38,29 @@ class LmdbCache(object):
     self.db = lmdb.open(basedir)
 
   def get(self, key):
-    bkey = key.encode('utf-8')
     with self.db.begin() as txn:
-      metakey = txn.get(bkey)
+      metakey = txn.get(key)
       if metakey is None:
         return None
       return json.loads(metakey.decode('utf-8'))
 
   def delete(self, key):
-    bkey = key.encode('utf-8')
     with self.db.begin(write=True) as txn:
-      metakey = txn.get(bkey)
+      metakey = txn.get(key)
       if metakey is not None:
         ret = json.loads(metakey.decode('utf-8'))
-        txn.delete(bkey)
+        txn.delete(key)
         return ret    # return last value of the key
     return None
 
   def put(self, key, dat):
-    bkey = key.encode('utf-8')
     with self.db.begin(write=True) as txn:
-      metakey = txn.get(bkey)
+      metakey = txn.get(key)
       if metakey is None:
-        txn.put(bkey, json.dumps(dat).encode('utf-8'))
+        txn.put(key, json.dumps(dat).encode('utf-8'))
         return True
       else:
         return False
-
-def key2path(key):
-  bkey = key.encode('utf-8')
-  mkey = hashlib.md5(bkey).hexdigest()
-  b64key = base64.b64encode(bkey).decode("utf-8")
-
-  # 2 byte layers deep, meaning a fanout of 256
-  # optimized for 2^24 = 16M files per volume server
-  return "/%s/%s/%s" % (mkey[0:2], mkey[2:4], b64key)
 
 if stype == "master":
   volumes = os.environ['VOLUMES'].split(",")
@@ -72,7 +68,7 @@ if stype == "master":
   kc = LmdbCache(os.environ['DB'])
 
 def master(env, sr):
-  key = env['PATH_INFO']
+  key = env['PATH_INFO'].encode("utf-8")
 
   # 302 redirect for GET
   if env['REQUEST_METHOD'] == 'GET':
@@ -153,12 +149,8 @@ class FileCache(object):
     print("FileCache in %s" % basedir)
 
   def _k2p(self, key, mkdir_ok=False):
-    # well formed key, not actually required checks
-    assert key[0] == '/'
-    assert key[3] == '/'
-    assert key[6] == '/'
-    assert '/' not in key[7:]
-    assert '..' not in key
+    # well formed key, not actually required to check
+    assert key == key2path(base64.b64decode(os.path.basename(key)))
 
     path = self.basedir + key
     if mkdir_ok:
