@@ -15,3 +15,7 @@ if __name__ == "__main__":
     # create tmpdir last as a sentinal
     os.makedirs(tmpdir, exist_ok=True)
 
+  # remove all files in tmpdir
+  for fn in os.listdir(tmpdir):
+    os.unlink(os.path.join(tmpdir, fn))
+

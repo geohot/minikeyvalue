@@ -141,10 +141,6 @@ class FileCache(object):
     self.tmpdir = os.path.join(self.basedir, "tmp")
     assert os.path.isdir(self.tmpdir)
 
-    # remove all files in tmpdir
-    for fn in os.listdir(self.tmpdir):
-      os.unlink(os.path.join(self.tmpdir, fn))
-
     print("FileCache in %s" % basedir)
 
   def _k2p(self, key):
