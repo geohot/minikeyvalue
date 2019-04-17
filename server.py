@@ -139,9 +139,18 @@ class FileCache(object):
   def __init__(self, basedir):
     self.basedir = os.path.realpath(basedir)
     self.tmpdir = os.path.join(self.basedir, "tmp")
-    os.makedirs(self.tmpdir, exist_ok=True)
 
     # TODO: lock this basedir such that starting two volume servers will fail
+
+    if not os.path.isdir(self.tmpdir):
+      print("creating 65k seed directories")
+      # create all 65k directories
+      for i in range(65536):
+        path = os.path.join(self.basedir, "%02x" % (i//256), "%02x" % (i%256))
+        os.makedirs(path, exist_ok=True)
+
+      # create tmpdir last as a sentinal
+      os.makedirs(self.tmpdir, exist_ok=True)
 
     # remove all files in tmpdir
     for fn in os.listdir(self.tmpdir):
@@ -149,13 +158,11 @@ class FileCache(object):
 
     print("FileCache in %s" % basedir)
 
-  def _k2p(self, key, mkdir_ok=False):
+  def _k2p(self, key):
     # well formed key, not actually required to check
     assert key == key2path(base64.b64decode(os.path.basename(key)))
 
     path = self.basedir + key
-    if mkdir_ok:
-      os.makedirs(os.path.dirname(path), exist_ok=True)
     return path
 
   def delete(self, key):
@@ -177,7 +184,7 @@ class FileCache(object):
     try:
       with tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=True) as f:
         shutil.copyfileobj(stream, f)
-        os.rename(f.name, self._k2p(key, True))
+        os.rename(f.name, self._k2p(key))
         ret = True
     except FileNotFoundError:
       # If the rename succeeds, the unlink should throw this
