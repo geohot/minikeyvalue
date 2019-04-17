@@ -59,14 +59,9 @@ class KeyCache(object):
 
 
 if os.environ['TYPE'] == "master":
-  # check on volume servers
   volumes = os.environ['VOLUMES'].split(",")
-
-  for v in volumes:
-    print(v)
-
+  print("volume servers:", volumes)
   kc = KeyCache(os.environ['DB'])
-
 
 def master(env, sr):
   key = env['PATH_INFO']
@@ -174,17 +169,21 @@ class FileCache(object):
       return None
 
   def put(self, key, stream):
-    with tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=False) as f:
-      shutil.copyfileobj(stream, f)
+    ret = False
+    try:
+      with tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=True) as f:
+        shutil.copyfileobj(stream, f)
 
-      # save the real name in xattr in case we rebuild cache
-      xattr.setxattr(f.name, 'user.key', key.encode('utf-8'))
+        # save the real name in xattr in case we rebuild cache
+        xattr.setxattr(f.name, 'user.key', key.encode('utf-8'))
 
-    # Note, a crash here will leave a tmp file around.
-    # This is okay and will be deleted on volume server restart
-
-    # TODO: check hash
-    os.rename(f.name, self._k2p(key, True))
+        # TODO: check hash
+        os.rename(f.name, self._k2p(key, True))
+        ret = True
+    except FileNotFoundError:
+      # If the rename succeeds, the unlink should throw this
+      return ret
+    return False
 
 if os.environ['TYPE'] == "volume":
   # create the filecache
@@ -196,8 +195,10 @@ def volume(env, sr):
   if env['REQUEST_METHOD'] == 'PUT':
     flen = int(env.get('CONTENT_LENGTH', '0'))
     if flen > 0:
-      fc.put(key, env['wsgi.input'])
-      return resp(sr, '201 Created')
+      if fc.put(key, env['wsgi.input']):
+        return resp(sr, '201 Created')
+      else:
+        return resp(sr, '500 Internal Server Error')
     else:
       return resp(sr, '411 Length Required')
 
