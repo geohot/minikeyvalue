@@ -144,7 +144,7 @@ class FileCache(object):
 
     print("FileCache in %s" % basedir)
 
-  def k2p(self, key, mkdir_ok=False):
+  def _k2p(self, key, mkdir_ok=False):
     key = hashlib.md5(key.encode('utf-8')).hexdigest()
 
     # 2 byte layers deep, meaning a fanout of 256
@@ -157,11 +157,11 @@ class FileCache(object):
     return os.path.join(path, key)
 
   def exists(self, key):
-    return os.path.isfile(self.k2p(key))
+    return os.path.isfile(self._k2p(key))
 
   def delete(self, key):
     try:
-      os.unlink(self.k2p(key))
+      os.unlink(self._k2p(key))
       return True
     except FileNotFoundError:
       pass
@@ -169,7 +169,7 @@ class FileCache(object):
 
   def get(self, key):
     try:
-      return open(self.k2p(key), "rb")
+      return open(self._k2p(key), "rb")
     except FileNotFoundError:
       return None
 
@@ -184,7 +184,7 @@ class FileCache(object):
     # This is okay and will be deleted on volume server restart
 
     # TODO: check hash
-    os.rename(f.name, self.k2p(key, True))
+    os.rename(f.name, self._k2p(key, True))
 
 if os.environ['TYPE'] == "volume":
   # create the filecache
