@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import socket
 import hashlib
 import binascii
 import unittest
@@ -146,5 +147,17 @@ class TestMiniKeyValue(unittest.TestCase):
 
 
 if __name__ == '__main__':
+  # wait for servers
+  for port in [3000,3001,3002]:
+    while 1:
+      print("waiting for servers")
+      try:
+        s = socket.create_connection(("localhost", port), timeout=0.5)
+        s.close()
+        break
+      except ConnectionRefusedError:
+        time.sleep(0.5)
+        continue
+  
   unittest.main()
 
