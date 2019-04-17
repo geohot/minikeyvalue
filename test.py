@@ -106,6 +106,11 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.delete(key)
     self.assertEqual(r.status_code, 200)
 
+  def test_noemptykey(self):
+    key = self.get_fresh_key()
+    r = requests.put(key, data="")
+    self.assertEqual(r.status_code, 411)
+
   def test_put_speed(self):
     PUT_COUNT = 64
     MAX_WORKERS = 8

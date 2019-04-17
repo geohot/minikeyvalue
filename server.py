@@ -22,12 +22,11 @@ def resp(start_response, code, headers=None, body=b''):
 
 # *** Master Server ***
 
-class KeyCache(object):
-  # this is a single computer on disk key value store optimized for small things
+class LmdbCache(object):
+  # this is a single computer on disk key json store optimized for small things
 
   def __init__(self, basedir):
-    # cache is backed by lmdb
-    self.db = lmdb.open(os.environ['DB'])
+    self.db = lmdb.open(basedir)
 
   def get(self, key):
     bkey = key.encode('utf-8')
@@ -61,7 +60,7 @@ class KeyCache(object):
 if os.environ['TYPE'] == "master":
   volumes = os.environ['VOLUMES'].split(",")
   print("volume servers:", volumes)
-  kc = KeyCache(os.environ['DB'])
+  kc = LmdbCache(os.environ['DB'])
 
 def master(env, sr):
   key = env['PATH_INFO']
@@ -77,7 +76,7 @@ def master(env, sr):
     return resp(sr, '302 Found', headers=[('Location', remote)])
 
   # proxy for DELETE
-  if env['REQUEST_METHOD'] == 'DELETE':
+  elif env['REQUEST_METHOD'] == 'DELETE':
     # first do the local delete while fetching the volume
     meta = kc.delete(key)
     if meta is None:
@@ -95,7 +94,7 @@ def master(env, sr):
       return resp(sr, '500 Internal Server Error (remote delete failed)')
 
   # proxy for PUT
-  if env['REQUEST_METHOD'] == 'PUT':
+  elif env['REQUEST_METHOD'] == 'PUT':
     # first check that we don't already have this
     if kc.get(key) is not None:
       return resp(sr, '409 Conflict')
@@ -103,10 +102,15 @@ def master(env, sr):
     # TODO: make volume selection intelligent
     volume = random.choice(volumes)
 
+    # no empty values
+    flen = int(env.get('CONTENT_LENGTH', '0'))
+    if flen <= 0:
+      return resp(sr, '411 Length Required')
+
     # now do the remote write
     # TODO: stream this
-    remote = 'http://%s%s' % (volume, key)
     dat = env['wsgi.input'].read()
+    remote = 'http://%s%s' % (volume, key)
     req = requests.put(remote, dat)
     if req.status_code != 201:
       return resp(sr, '500 Internal Server Error (remote write failed)')
@@ -151,9 +155,6 @@ class FileCache(object):
 
     return os.path.join(path, key)
 
-  def exists(self, key):
-    return os.path.isfile(self._k2p(key))
-
   def delete(self, key):
     try:
       os.unlink(self._k2p(key))
@@ -192,27 +193,9 @@ if os.environ['TYPE'] == "volume":
 def volume(env, sr):
   key = env['PATH_INFO']
 
-  if env['REQUEST_METHOD'] == 'PUT':
-    flen = int(env.get('CONTENT_LENGTH', '0'))
-    if flen > 0:
-      if fc.put(key, env['wsgi.input']):
-        return resp(sr, '201 Created')
-      else:
-        return resp(sr, '500 Internal Server Error')
-    else:
-      return resp(sr, '411 Length Required')
-
-  if env['REQUEST_METHOD'] == 'DELETE':
-    if fc.delete(key):
-      return resp(sr, '200 OK')
-    else:
-      # file wasn't on our disk
-      return resp(sr, '500 Internal Server Error (not on disk)')
-
   if env['REQUEST_METHOD'] == 'GET':
     f = fc.get(key)
     if f is None:
-      # key not in the FileCache, 404
       return resp(sr, '404 Not Found (from volume server)')
 
     # TODO: read in chunks, don't waste RAM
@@ -226,4 +209,16 @@ def volume(env, sr):
     # close file and send back
     f.close()
     return resp(sr, '200 OK', body=ret)
+
+  elif env['REQUEST_METHOD'] == 'DELETE':
+    if fc.delete(key):
+      return resp(sr, '200 OK')
+    else:
+      return resp(sr, '500 Internal Server Error (not on disk)')
+
+  elif env['REQUEST_METHOD'] == 'PUT':
+    if fc.put(key, env['wsgi.input']):
+      return resp(sr, '201 Created')
+    else:
+      return resp(sr, '500 Internal Server Error (volume write failed)')
 
