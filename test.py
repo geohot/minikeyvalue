@@ -150,7 +150,6 @@ if __name__ == '__main__':
   # wait for servers
   for port in [3000,3001,3002]:
     while 1:
-      print("waiting for servers")
       try:
         s = socket.create_connection(("localhost", port), timeout=0.5)
         s.close()
@@ -158,6 +157,7 @@ if __name__ == '__main__':
       except ConnectionRefusedError:
         time.sleep(0.5)
         continue
+      print("waiting for servers")
   
   unittest.main()
 
