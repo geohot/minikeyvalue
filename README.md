@@ -27,6 +27,7 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 ### Start Volume Server (default port 3001)
 
 ```
+# TODO: the volume server can now be replaced by nginx
 ./volume /tmp/volume1/
 PORT=3002 ./volume /tmp/volume2/
 ```

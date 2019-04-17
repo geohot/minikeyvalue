@@ -123,7 +123,7 @@ def master(env, sr):
 
     # now do the local write (after it's safe on the remote server)
     if not kc.put(key, {"volume": volume}):
-      # someone else wrote in the mean time
+      # someone else wrote in the mean time, they won the race
       requests.delete(remote)
       return resp(sr, '409 Conflict')
 
