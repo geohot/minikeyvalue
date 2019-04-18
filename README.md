@@ -50,8 +50,10 @@ curl -L -X DELETE localhost:3000/wehave
 ```
 # Fetching non-existent key: 510 req/sec
 wrk -t2 -c100 -d10s http://localhost:3000/key
+# 116338.68 req/sec in go!
 
 # Fetching existent key: 440 req/sec (idk if redirect is being followed)
 wrk -t2 -c100 -d10s http://localhost:3000/wehave
+# 105188.57 req/sec in go!
 ```
 
