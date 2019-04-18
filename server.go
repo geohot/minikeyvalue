@@ -1,7 +1,5 @@
 package main
 
-// go get github.com/syndtr/goleveldb/leveldb
-
 import (
   "encoding/base64"
   "crypto/md5"
@@ -102,7 +100,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
 
     if remote_put(remote, r.ContentLength, r.Body) == false {
-      remote_delete(remote)
       w.WriteHeader(500)
       return
     }
@@ -119,9 +116,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // push to leveldb
     a.db.Put(key, []byte(volume), nil)
 
+    // 201, all good
     w.WriteHeader(201)
   case "DELETE":
-    // delete the key
+    // delete the key, first locally
     data, err := a.db.Get(key, nil)
     if err == leveldb.ErrNotFound {
       w.WriteHeader(404)
@@ -129,12 +127,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
     a.db.Delete(key, nil)
 
+    // then remotely
     remote := fmt.Sprintf("http://%s%s", string(data), key2path(key))
     if remote_delete(remote) == false {
       w.WriteHeader(500)
       return
     }
 
+    // 204, all good
     w.WriteHeader(204)
   }
 }

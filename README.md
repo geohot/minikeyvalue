@@ -6,23 +6,21 @@ Fed up with the complexity of distributed filesystems?
 
 minikeyvalue is a ~200 line (not including tests!) distributed key value store. Optimized for reading files between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
 
-Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage. It's like the nginx cache with MD5 hashes choosing the directory and the base64 encoded key as a filename.
-
-Update: Now less crap. Volume server is nginx and Master server is written in Go.
+Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage, and each value is a file.
 
 ### API
 
 - GET /key
-  - 302 redirect to volume server.
-  - Supports range requests.
+  - 302 redirect to nginx volume server.
 - PUT /key
   - Blocks. 201 = written, anything else = nothing happened.
 - DELETE /key
-  - Blocks. 200 = deleted, anything else = unknown
+  - Blocks. 204 = deleted, anything else = probably deleted.
 
 ### Start Master Server (default port 3000)
 
 ```
+# this is using the code in server.go
 ./master localhost:3001,localhost:3002 /tmp/cachedb/
 ```
 
@@ -50,12 +48,10 @@ curl -L -X DELETE localhost:3000/wehave
 ### Performance
 
 ```
-# Fetching non-existent key: 510 req/sec
+# Fetching non-existent key: 116338 req/sec
 wrk -t2 -c100 -d10s http://localhost:3000/key
-# 116338.68 req/sec in go!
 
-# Fetching existent key: 440 req/sec (idk if redirect is being followed)
+# Fetching existent key: 105188 req/sec (idk if redirect is being followed)
 wrk -t2 -c100 -d10s http://localhost:3000/wehave
-# 105188.57 req/sec in go!
 ```
 
