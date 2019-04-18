@@ -12,7 +12,7 @@ done
 CONF=$(mktemp)
 echo "
 daemon off;
-worker_processes 1;
+worker_processes auto;
 
 error_log /dev/stderr;
 pid $VOLUME/nginx.pid;

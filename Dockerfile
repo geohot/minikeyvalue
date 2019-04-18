@@ -6,5 +6,5 @@ RUN apt-get update && apt-get -y install build-essential curl python3 python3-pi
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
-COPY precreate.py server.py bringup.sh master volume test.py /tmp/
+COPY server.py bringup.sh master volume test.py /tmp/
 
