@@ -105,15 +105,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // note, this currently is a race
-    // TODO: put get and put in the same transaction
+    // see note below
     _, err = a.db.Get(key, nil)
     if err != leveldb.ErrNotFound {
-      remote_delete(remote)
+      // not safe to delete here
       w.WriteHeader(409)
       return
     }
 
     // push to leveldb
+    // note that this may possibly overwrite if there's a race
+    // this is fine, but can possibly create an orphan file
     a.db.Put(key, []byte(volume), nil)
 
     // 201, all good
@@ -125,6 +127,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       w.WriteHeader(404)
       return
     }
+
+    // note that this may not actually delete the key if there's a race
+    // this is fine, extra remote delete won't hurt
     a.db.Delete(key, nil)
 
     // then remotely
@@ -141,7 +146,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
   fmt.Printf("hello from go %s\n", os.Args[3])
+
   db, err := leveldb.OpenFile(os.Args[1], nil)
+  defer db.Close()
+
   if err != nil {
     fmt.Errorf("LevelDB open failed %s", err)
     return
