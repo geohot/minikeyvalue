@@ -10,7 +10,7 @@ echo "
 daemon off;
 worker_processes 1;
 
-error_log /dev/tty;
+error_log /dev/stderr;
 pid $VOLUME/tmp/nginx.pid;
 
 events {
