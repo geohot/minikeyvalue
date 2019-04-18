@@ -154,7 +154,7 @@ if __name__ == '__main__':
         s = socket.create_connection(("localhost", port), timeout=0.5)
         s.close()
         break
-      except ConnectionRefusedError:
+      except ConnectionRefusedError, OSError:
         time.sleep(0.5)
         continue
       print("waiting for servers")

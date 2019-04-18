@@ -68,6 +68,22 @@ if stype == "master":
   print("volume servers:", volumes)
   kc = LmdbCache(os.environ['DB'])
 
+def remote_put(remote, dat):
+  try:
+    req = requests.put(remote, dat)
+    return req.status_code == 201
+  except Exception:
+    print("remote put failed: %s %d" % (remote, len(dat)))
+    return False
+
+def remote_delete(remote):
+  try:
+    req = requests.delete(remote)
+    return req.status_code == 200
+  except Exception:
+    print("remote delete failed: %s" % remote)
+    return False
+
 def master(env, sr):
   key = env['PATH_INFO'].encode("utf-8")
 
@@ -90,9 +106,8 @@ def master(env, sr):
 
     # now do the remote delete
     remote = 'http://%s%s' % (meta['volume'], key2path(key))
-    req = requests.delete(remote)
 
-    if req.status_code == 200:
+    if remote_delete(remote):
       return resp(sr, '200 OK')
     else:
       # TODO: think through this case more
@@ -116,15 +131,17 @@ def master(env, sr):
     # now do the remote write
     # TODO: stream this
     dat = env['wsgi.input'].read()
+    if len(dat) != flen:
+      return resp(sr, '500 Internal Server Error (length mismatch)')
+
     remote = 'http://%s%s' % (volume, key2path(key))
-    req = requests.put(remote, dat)
-    if req.status_code != 201:
+    if not remote_put(remote, dat):
       return resp(sr, '500 Internal Server Error (remote write failed)')
 
     # now do the local write (after it's safe on the remote server)
-    if not kc.put(key, {"volume": volume}):
+    if not kc.put(key, {"volume": volume, "size": flen}):
       # someone else wrote in the mean time, they won the race
-      requests.delete(remote)
+      remote_delete(remote)
       return resp(sr, '409 Conflict')
 
     # both writes succeed
