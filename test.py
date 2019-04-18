@@ -84,7 +84,7 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 201)
 
     r = requests.get(key, headers={"Range": "bytes=2-5"})
-    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.status_code, 206)
     self.assertEqual(r.text, "you")
 
   def test_nonexistent_key(self):

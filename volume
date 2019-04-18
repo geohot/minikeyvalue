@@ -1,7 +1,29 @@
 #!/bin/bash
 export VOLUME=${1:-/tmp/volume1/}
 export TYPE=volume
+export PORT=${PORT:-3001}
 
 ./precreate.py $VOLUME
-uwsgi --disable-logging --http :${PORT:-3001} --wsgi-file server.py --callable volume --master --processes 4
+
+CONF=$(mktemp)
+echo "
+daemon off;
+worker_processes 1;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  server {
+    client_max_body_size 0;
+    listen $PORT default_server;
+    location / {
+      root $VOLUME;
+      dav_methods PUT DELETE;
+    }
+  }
+}
+" > $CONF
+nginx -c $CONF
 

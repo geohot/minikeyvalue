@@ -88,18 +88,23 @@ if stype == "master":
 def remote_put(remote, dat):
   try:
     req = requests.put(remote, dat)
-    return req.status_code == 201
+    ret = req.status_code in [201, 204]
   except Exception:
+    ret = False
+  if not ret:
     print("remote put failed: %s %d" % (remote, len(dat)))
-    return False
+  return ret
+
 
 def remote_delete(remote):
   try:
     req = requests.delete(remote)
-    return req.status_code == 200
+    ret = req.status_code in [200, 204]
   except Exception:
+    ret = False
+  if not ret:
     print("remote delete failed: %s" % remote)
-    return False
+  return ret
 
 def master(env, sr):
   key = env['PATH_INFO'].encode("utf-8")
@@ -233,8 +238,10 @@ def volume(env, sr):
         b,e = [int(x) for x in env['HTTP_RANGE'].split("=")[1].split("-")]
         f.seek(b)
         ret = f.read(e-b)
+        stat = '206 Partial Content'
       else:
         ret = f.read()
+        stat = '200 OK'
 
     # close file and send back
     f.close()
