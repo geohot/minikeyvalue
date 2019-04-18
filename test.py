@@ -92,6 +92,19 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.get(key)
     self.assertEqual(r.status_code, 404)
 
+  def test_head_request(self):
+    # head not exist
+    key = self.get_fresh_key()
+    r = requests.head(key, allow_redirects=True)
+    self.assertEqual(r.status_code, 404)
+
+    # head exist
+    key = self.get_fresh_key()
+    r = requests.put(key, data="onyou")
+    self.assertEqual(r.status_code, 201)
+    r = requests.head(key, allow_redirects=True)
+    self.assertEqual(r.status_code, 200)
+
   def test_large_key(self):
     key = self.get_fresh_key()
 

@@ -87,8 +87,8 @@ def remote_delete(remote):
 def master(env, sr):
   key = env['PATH_INFO'].encode("utf-8")
 
-  # 302 redirect for GET
-  if env['REQUEST_METHOD'] == 'GET':
+  # 302 redirect for GET/HEAD
+  if env['REQUEST_METHOD'] in ['GET', 'HEAD']:
     meta = kc.get(key)
     if meta is None:
       return resp(sr, '404 Not Found')
@@ -203,18 +203,21 @@ if stype == "volume":
 def volume(env, sr):
   key = env['PATH_INFO']
 
-  if env['REQUEST_METHOD'] == 'GET':
+  if env['REQUEST_METHOD'] in ['GET', 'HEAD']:
     f = fc.get(key)
     if f is None:
       return resp(sr, '404 Not Found (from volume server)')
 
-    # TODO: read in chunks, don't waste RAM
-    if 'HTTP_RANGE' in env:
-      b,e = [int(x) for x in env['HTTP_RANGE'].split("=")[1].split("-")]
-      f.seek(b)
-      ret = f.read(e-b)
+    if env['REQUEST_METHOD'] == 'HEAD':
+      ret = b''
     else:
-      ret = f.read()
+      # TODO: read in chunks, don't waste RAM
+      if 'HTTP_RANGE' in env:
+        b,e = [int(x) for x in env['HTTP_RANGE'].split("=")[1].split("-")]
+        f.seek(b)
+        ret = f.read(e-b)
+      else:
+        ret = f.read()
 
     # close file and send back
     f.close()
