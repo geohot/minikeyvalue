@@ -11,6 +11,7 @@ if __name__ == "__main__":
     for i in range(65536):
       path = os.path.join(basedir, "%02x" % (i//256), "%02x" % (i%256))
       os.makedirs(path, exist_ok=True)
+      os.chmod(path, 0o777)
 
     # create tmpdir last as a sentinal
     os.makedirs(tmpdir, exist_ok=True)
