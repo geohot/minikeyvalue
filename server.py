@@ -35,14 +35,14 @@ def key2volume(key, volumes):
   # should be stable in the volume server name (not position!)
   # and if more are added the correct portion will move (yay md5!)
   # note that this would be trivial to extend to replicas using k top
-  best_score = -1
+  best_score = None
   ret = None
   for v in volumes:
     # hash the volume + the key
     kk = v.encode('utf-8') + key
     score = int.from_bytes(hashlib.md5(kk).digest(), byteorder='big')
     # find the biggest hash (strcmp)
-    if best_score < score:
+    if best_score is None or best_score < score:
       best_score = score
       ret = v
   return ret

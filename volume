@@ -10,11 +10,16 @@ echo "
 daemon off;
 worker_processes 1;
 
+error_log /dev/tty;
+pid $VOLUME/tmp/nginx.pid;
+
 events {
   worker_connections 1024;
 }
 
 http {
+  client_body_temp_path $VOLUME/body_temp;
+
   server {
     client_max_body_size 0;
     listen $PORT default_server;
@@ -25,5 +30,5 @@ http {
   }
 }
 " > $CONF
-nginx -c $CONF
+nginx -c $CONF -p $VOLUME/tmp
 
