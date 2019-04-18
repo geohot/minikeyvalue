@@ -88,6 +88,7 @@ if stype == "master":
 def remote_put(remote, dat):
   try:
     req = requests.put(remote, dat)
+    # 201 is a new file, 204 is an overwrite
     ret = req.status_code in [201, 204]
   except Exception:
     ret = False
@@ -95,11 +96,10 @@ def remote_put(remote, dat):
     print("remote put failed: %s %d" % (remote, len(dat)))
   return ret
 
-
 def remote_delete(remote):
   try:
     req = requests.delete(remote)
-    ret = req.status_code in [200, 204]
+    ret = req.status_code == 204
   except Exception:
     ret = False
   if not ret:
