@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 export VOLUMES=${1:-localhost:3001}
 export DB=${2:-/tmp/cachedb/}
 export TYPE=master
