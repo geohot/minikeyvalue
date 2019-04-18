@@ -23,12 +23,29 @@ def resp(start_response, code, headers=None, body=b''):
 
 # assert key == key2path(base64.b64decode(os.path.basename(key)))
 def key2path(key):
-  mkey = hashlib.md5(key).hexdigest()
+  mkey = hashlib.md5(key).digest()
   b64key = base64.b64encode(key).decode("utf-8")
 
   # 2 byte layers deep, meaning a fanout of 256
   # optimized for 2^24 = 16M files per volume server
-  return "/%s/%s/%s" % (mkey[0:2], mkey[2:4], b64key)
+  return "/%02x/%02x/%s" % (mkey[0], mkey[1], b64key)
+
+def key2volume(key, volumes):
+  # this is an intelligent way to pick the volume server for a file
+  # should be stable in the volume server name (not position!)
+  # and if more are added the correct portion will move (yay md5!)
+  # note that this would be trivial to extend to replicas using k top
+  best_score = -1
+  ret = None
+  for v in volumes:
+    # hash the volume + the key
+    kk = v.encode('utf-8') + key
+    score = int.from_bytes(hashlib.md5(kk).digest(), byteorder='big')
+    # find the biggest hash (strcmp)
+    if best_score < score:
+      best_score = score
+      ret = v
+  return ret
 
 # *** Master Server ***
 
@@ -120,8 +137,8 @@ def master(env, sr):
     if kc.get(key) is not None:
       return resp(sr, '409 Conflict')
 
-    # TODO: make volume selection intelligent
-    volume = random.choice(volumes)
+    # select the volume
+    volume = key2volume(key, volumes)
 
     # no empty values
     flen = int(env.get('CONTENT_LENGTH', '0'))
