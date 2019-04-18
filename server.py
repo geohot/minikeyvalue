@@ -130,7 +130,7 @@ def master(env, sr):
     remote = 'http://%s%s' % (meta['volume'], key2path(key))
 
     if remote_delete(remote):
-      return resp(sr, '200 OK')
+      return resp(sr, '204 No Content')
     else:
       # NOTE: The delete can succeed locally and fail remotely
       # This will cause an orphan file, worst case it wastes space

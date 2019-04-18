@@ -29,7 +29,7 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.text, "onyou")
 
     r = requests.delete(key)
-    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.status_code, 204)
 
   def test_deleteworks(self):
     key = self.get_fresh_key()
@@ -38,7 +38,7 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 201)
 
     r = requests.delete(key)
-    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.status_code, 204)
 
     r = requests.get(key)
     self.assertEqual(r.status_code, 404)
@@ -49,10 +49,10 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 201)
 
     r = requests.delete(key)
-    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.status_code, 204)
 
     r = requests.delete(key)
-    self.assertNotEqual(r.status_code, 200)
+    self.assertNotEqual(r.status_code, 204)
 
   def test_doubleput(self):
     key = self.get_fresh_key()
@@ -76,7 +76,7 @@ class TestMiniKeyValue(unittest.TestCase):
 
     for k in keys:
       r = requests.delete(k)
-      self.assertEqual(r.status_code, 200)
+      self.assertEqual(r.status_code, 204)
 
   def test_range_request(self):
     key = self.get_fresh_key()
@@ -118,7 +118,7 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.content, data)
 
     r = requests.delete(key)
-    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.status_code, 204)
 
   def test_noemptykey(self):
     key = self.get_fresh_key()
