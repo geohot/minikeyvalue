@@ -110,8 +110,8 @@ def master(env, sr):
     if remote_delete(remote):
       return resp(sr, '200 OK')
     else:
-      # TODO: think through this case more
-      # worst case it wastes space on the remote
+      # NOTE: The delete can succeed locally and fail remotely
+      # This will cause an orphan file, worst case it wastes space
       return resp(sr, '500 Internal Server Error (remote delete failed)')
 
   # proxy for PUT
@@ -137,6 +137,9 @@ def master(env, sr):
     remote = 'http://%s%s' % (volume, key2path(key))
     if not remote_put(remote, dat):
       return resp(sr, '500 Internal Server Error (remote write failed)')
+
+    # NOTE: The put can succeed remotely and fail locally
+    # This will cause an orphan file, worst case it wastes space
 
     # now do the local write (after it's safe on the remote server)
     if not kc.put(key, {"volume": volume, "size": flen}):
