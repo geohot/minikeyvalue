@@ -8,6 +8,8 @@ minikeyvalue is a ~200 line (not including tests!) distributed key value store. 
 
 Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage. It's like the nginx cache with MD5 hashes choosing the directory and the base64 encoded key as a filename.
 
+Update: Now less crap. Volume server is nginx and Master server is written in Go.
+
 ### API
 
 - GET /key
