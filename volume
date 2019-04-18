@@ -6,7 +6,7 @@ export PORT=${PORT:-3001}
 # create 65536 directories for files
 for I in 0 1 2 3 4 5 6 7 8 9 a b c d e f
 do
-  mkdir -p $VOLUME/$I{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}/{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}
+  mkdir -p $VOLUME/${I}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}/{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}
 done
 
 CONF=$(mktemp)
