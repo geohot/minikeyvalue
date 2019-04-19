@@ -125,40 +125,6 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="")
     self.assertEqual(r.status_code, 411)
 
-  def test_put_speed(self):
-    PUT_COUNT = 64
-    MAX_WORKERS = 8
-    keys = [self.get_fresh_key() for i in range(PUT_COUNT)]
-
-    def put(x):
-      r = requests.put(x, data=b"onyou-"+x)
-      return r.status_code
-
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-      start = time.perf_counter()
-      for status_code in executor.map(put, keys):
-        self.assertEqual(status_code, 201)
-      elapsed = time.perf_counter()-start
-
-    logger.debug("%.2f ms for %d writes (%.2f writes/second)" %
-      (elapsed*1000., PUT_COUNT, PUT_COUNT/elapsed))
-
-    def get(x):
-      r = requests.get(x)
-      return r.status_code, r.content
-
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-      start = time.perf_counter()
-      for x,o in zip(keys, executor.map(get, keys)):
-        status_code, text = o
-        self.assertEqual(status_code, 200)
-        self.assertEqual(text, b"onyou-"+x)
-      elapsed = time.perf_counter()-start
-
-    logger.debug("%.2f ms for %d reads (%.2f reads/second)" %
-      (elapsed*1000., PUT_COUNT, PUT_COUNT/elapsed))
-
-
 if __name__ == '__main__':
   # wait for servers
   for port in [3000,3001,3002]:
