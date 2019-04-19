@@ -4,7 +4,7 @@
 
 Fed up with the complexity of distributed filesystems?
 
-minikeyvalue is a ~300 line (not including tests!) distributed key value store. Optimized for values between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
+minikeyvalue is a ~200 line (not including tests!) distributed key value store. Optimized for values between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
 
 Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage and a LevelDB for indexing. The index can be reconstructed with rebuild. Volumes can be added or removed with rebalance.
 
@@ -67,6 +67,7 @@ go run rebuild.go lib.go localhost:3001,localhost:3002 /tmp/indexdbalt/
 # Fetching non-existent key: 116338 req/sec
 wrk -t2 -c100 -d10s http://localhost:3000/key
 
+# go run thrasher.go lib.go
 starting thrasher
 10000 write/read/delete in 2.620922675s
 thats 3815.40/sec
