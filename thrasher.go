@@ -66,7 +66,10 @@ func main() {
           fmt.Println("GET FAILED", value)
         }
 
-        remote_delete("http://localhost:3000/"+key)
+        ret = remote_delete("http://localhost:3000/"+key)
+        if ret == false {
+          fmt.Println("DELETE FAILED")
+        }
         messages <- ss
       }
     }()
