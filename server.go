@@ -9,7 +9,9 @@ import (
   "strings"
   "fmt"
   "net/http"
+  "encoding/json"
   "github.com/syndtr/goleveldb/leveldb"
+  "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // *** Hash Functions ***
@@ -26,14 +28,15 @@ func key2volume(key []byte, volumes []string) string {
   var ret string = ""
   for _, v := range volumes {
     hash := md5.New()
-    hash.Write([]byte(v))
     hash.Write(key)
+    hash.Write([]byte(v))
     score := hash.Sum(nil)
     if best_score == nil || bytes.Compare(best_score, score) == -1 {
       best_score = score
       ret = v
     }
   }
+  //fmt.Println(string(key), ret, best_score)
   return ret
 }
 
@@ -65,6 +68,39 @@ func (a *App) LockKey(key []byte) bool {
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
+  // empty url = no go
+  if len(key) <= 1 {
+    // could put a status page here
+    w.WriteHeader(403)
+    return
+  }
+
+  // this is a list query
+  if key[len(key)-1] == '/' {
+    if r.Method != "GET" {
+      w.WriteHeader(403)
+      return
+    }
+    iter := a.db.NewIterator(util.BytesPrefix(key[:len(key)-1]), nil)
+    defer iter.Release()
+    keys := make([]string, 0)
+    for iter.Next() {
+      keys = append(keys, string(iter.Key()))
+      if len(keys) > 1000000 {   // too large
+        w.WriteHeader(413)
+        return
+      }
+    }
+    str, err := json.Marshal(keys)
+    if err != nil {
+      w.WriteHeader(500)
+      return
+    }
+    w.WriteHeader(200)
+    w.Write(str)
+    return
+  }
+
   // lock the key while a PUT or DELETE is in progress
   if r.Method == "PUT" || r.Method == "DELETE" {
     if !a.LockKey(key) {
@@ -83,6 +119,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
     volume := string(data)
+    // TODO: Check volume is in a.volumes
     kvolume := key2volume(key, a.volumes)
     if volume != kvolume {
       fmt.Println("on wrong volume, needs rebalance")
@@ -158,6 +195,7 @@ func main() {
     fmt.Errorf("LevelDB open failed %s", err)
     return
   }
+
   http.ListenAndServe("127.0.0.1:"+os.Args[2], &App{db: db,
     lock: make(map[string]struct{}),
     volumes: strings.Split(os.Args[3], ",")})

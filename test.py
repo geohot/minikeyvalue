@@ -131,6 +131,23 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.delete(key)
     self.assertEqual(r.status_code, 204)
 
+  def test_json_list(self):
+    key = self.get_fresh_key()
+    data = "eh"
+    r = requests.put(key+b"1", data=data)
+    self.assertEqual(r.status_code, 201)
+    r = requests.put(key+b"2", data=data)
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key+b"/")
+    bkey = key.decode('utf-8')
+    bkey = "/"+bkey.split("/")[-1]
+    self.assertEqual(r.json(), [bkey+"1", bkey+"2"])
+
+  def test_json_list_null(self):
+    r = requests.get(self.get_fresh_key()+b"/DOES_NOT_EXIST/")
+    self.assertEqual(r.json(), [])
+
   def test_noemptykey(self):
     key = self.get_fresh_key()
     r = requests.put(key, data="")
