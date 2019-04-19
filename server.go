@@ -42,7 +42,7 @@ func key2volume(key []byte, volumes []string) string {
 type App struct {
   db *leveldb.DB
   mlock sync.Mutex
-  lock map[string]bool
+  lock map[string]struct{}
   volumes []string
 }
 
@@ -55,11 +55,10 @@ func (a *App) UnlockKey(key []byte) {
 func (a *App) LockKey(key []byte) bool {
   a.mlock.Lock()
   defer a.mlock.Unlock()
-  _, prs := a.lock[string(key)]
-  if prs {
+  if _, prs := a.lock[string(key)]; prs {
     return false
   }
-  a.lock[string(key)] = true
+  a.lock[string(key)] = struct{}{}
   return true
 }
 
@@ -160,7 +159,7 @@ func main() {
     return
   }
   http.ListenAndServe("127.0.0.1:"+os.Args[2], &App{db: db,
-    lock: make(map[string]bool),
+    lock: make(map[string]struct{}),
     volumes: strings.Split(os.Args[3], ",")})
 }
 
