@@ -5,13 +5,14 @@ import (
   "crypto/md5"
   "os"
   "bytes"
+  "sync"
   "strings"
   "fmt"
   "net/http"
   "github.com/syndtr/goleveldb/leveldb"
 )
 
-// *** Global ***
+// *** Hash Functions ***
 
 func key2path(key []byte) string {
   mkey := md5.Sum(key)
@@ -40,12 +41,36 @@ func key2volume(key []byte, volumes []string) string {
 
 type App struct {
   db *leveldb.DB
+  mlock sync.Mutex
+  lock map[string]bool
   volumes []string
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  key := []byte(r.URL.Path)
+  skey := r.URL.Path
 
+  // lock the key while a PUT or DELETE is in progress
+  if r.Method == "PUT" || r.Method == "DELETE" {
+    a.mlock.Lock()
+    _, prs := a.lock[skey]
+    if prs {
+      a.mlock.Unlock()
+      // Conflict, retry later
+      w.WriteHeader(409)
+      return
+    }
+    a.lock[skey] = true
+    a.mlock.Unlock()
+
+    // release the lock when this function exits
+    defer func() {
+      a.mlock.Lock()
+      delete(a.lock, skey)
+      a.mlock.Unlock()
+    }()
+  }
+
+  key := []byte(skey)
   switch r.Method {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
@@ -71,7 +96,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // check if we already have the key
     if err != leveldb.ErrNotFound {
-      w.WriteHeader(409)
+      // Forbidden to overwrite with PUT
+      w.WriteHeader(403)
       return
     }
 
@@ -80,22 +106,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
 
     if remote_put(remote, r.ContentLength, r.Body) != nil {
+      // we assume the remote wrote nothing if it failed
       w.WriteHeader(500)
       return
     }
 
-    // note, this currently is a race
-    // see note below
-    _, err = a.db.Get(key, nil)
-    if err != leveldb.ErrNotFound {
-      // not safe to delete here
-      w.WriteHeader(409)
-      return
-    }
-
     // push to leveldb
-    // note that this may possibly overwrite if there's a race
-    // this is fine, but can possibly create an orphan file
     a.db.Put(key, []byte(volume), nil)
 
     // 201, all good
@@ -108,13 +124,13 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    // note that this may not actually delete the key if there's a race
-    // this is fine, extra remote delete won't hurt
     a.db.Delete(key, nil)
 
     // then remotely
     remote := fmt.Sprintf("http://%s%s", string(data), key2path(key))
     if remote_delete(remote) != nil {
+      // if this fails, it's possible to get an orphan file
+      // but i'm not really sure what else to do?
       w.WriteHeader(500)
       return
     }
@@ -137,6 +153,7 @@ func main() {
     return
   }
   http.ListenAndServe("127.0.0.1:"+os.Args[2], &App{db: db,
+    lock: make(map[string]bool),
     volumes: strings.Split(os.Args[3], ",")})
 }
 

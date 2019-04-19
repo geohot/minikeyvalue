@@ -62,6 +62,17 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertNotEqual(r.status_code, 201)
 
+  def test_doubleputwdelete(self):
+    key = self.get_fresh_key()
+    r = requests.put(key, data="onyou")
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.delete(key)
+    self.assertEqual(r.status_code, 204)
+
+    r = requests.put(key, data="onyou")
+    self.assertEqual(r.status_code, 201)
+
   def test_10keys(self):
     keys = [self.get_fresh_key() for i in range(10)]
 
