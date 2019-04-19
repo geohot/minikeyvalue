@@ -15,7 +15,6 @@ type RebalanceRequest struct {
 }
 
 func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
-  fmt.Println("rebalancing", string(req.key), "from", req.volume, "to", req.kvolume)
   remote_from := fmt.Sprintf("http://%s%s", req.volume, key2path(req.key))
   remote_to := fmt.Sprintf("http://%s%s", req.kvolume, key2path(req.key))
 
@@ -25,6 +24,9 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
     fmt.Println("get error", err, remote_from)
     return false
   }
+
+  // debug
+  fmt.Println("rebalancing", string(req.key), "from", req.volume, "to", req.kvolume, "with length", len(ss))
 
   // write
   err = remote_put(remote_to, int64(len(ss)), strings.NewReader(ss))
