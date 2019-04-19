@@ -53,7 +53,11 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       w.WriteHeader(404)
       return
     }
-    remote := fmt.Sprintf("http://%s%s", string(data), key2path(key))
+    volume := string(data)
+    if volume != key2volume(key, a.volumes) {
+      fmt.Println("on wrong volume, needs rebalance")
+    }
+    remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
     w.WriteHeader(302)
   case "PUT":

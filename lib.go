@@ -2,6 +2,7 @@ package main
 
 import (
   "errors"
+  "fmt"
   "io"
   "io/ioutil"
   "net/http"
@@ -15,7 +16,7 @@ func remote_delete(remote string) error {
     return err
   }
   if resp.StatusCode != 204 {
-    return errors.New("delete failed")
+    return errors.New(fmt.Sprintf("remote_delete: wrong status code %d", resp.StatusCode))
   }
   return nil
 }
@@ -29,7 +30,7 @@ func remote_put(remote string, length int64, body io.Reader) error {
     return err
   }
   if resp.StatusCode != 201 && resp.StatusCode != 204 {
-    return errors.New("put failed")
+    return errors.New(fmt.Sprintf("remote_put: wrong status code %d", resp.StatusCode))
   }
   return nil
 }
