@@ -8,5 +8,5 @@ RUN apt-get update && \
 RUN pip3 install --no-cache-dir requests
 
 ENV GOPATH $HOME/go  
-COPY thrasher.go server.go bringup.sh master volume test.py /tmp/
+COPY lib.go thrasher.go server.go bringup.sh master volume test.py /tmp/
 
