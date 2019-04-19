@@ -10,6 +10,9 @@ import (
 
 func remote_delete(remote string) error {
   req, err := http.NewRequest("DELETE", remote, nil)
+  if err != nil {
+    return err
+  }
   resp, err := http.DefaultClient.Do(req)
   if err != nil {
     return err
@@ -23,6 +26,9 @@ func remote_delete(remote string) error {
 
 func remote_put(remote string, length int64, body io.Reader) error {
   req, err := http.NewRequest("PUT", remote, body)
+  if err != nil {
+    return err
+  }
   req.ContentLength = length
   resp, err := http.DefaultClient.Do(req)
   if err != nil {

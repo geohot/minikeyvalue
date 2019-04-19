@@ -3,6 +3,7 @@ package main
 import (
   "os"
   "fmt"
+  "net/http"
   "time"
   "strings"
   "math/rand"
@@ -14,6 +15,8 @@ func main() {
   reqs := make(chan string, 20000)
   resp := make(chan bool, 20000)
   fmt.Println("starting thrasher")
+
+  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 256
 
   // 16 concurrent processes
   for i := 0; i < 16; i++ {
