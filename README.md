@@ -45,7 +45,7 @@ curl -L localhost:3000/wehave
 curl -L -X DELETE localhost:3000/wehave
 
 # list keys starting with "we"
-curl -L localhost:3000/we/
+curl -L localhost:3000/we?list
 ```
 
 ### Performance

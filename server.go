@@ -65,23 +65,10 @@ func (a *App) LockKey(key []byte) bool {
   return true
 }
 
-func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  key := []byte(r.URL.Path)
-
-  // empty url = no go
-  if len(key) <= 1 {
-    // could put a status page here
-    w.WriteHeader(403)
-    return
-  }
-
-  // this is a list query
-  if key[len(key)-1] == '/' {
-    if r.Method != "GET" {
-      w.WriteHeader(403)
-      return
-    }
-    iter := a.db.NewIterator(util.BytesPrefix(key[:len(key)-1]), nil)
+func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
+  switch r.URL.RawQuery {
+  case "list":
+    iter := a.db.NewIterator(util.BytesPrefix(key), nil)
     defer iter.Release()
     keys := make([]string, 0)
     for iter.Next() {
@@ -96,8 +83,26 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       w.WriteHeader(500)
       return
     }
+    w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(200)
     w.Write(str)
+    return
+  default:
+    w.WriteHeader(403)
+    return
+  }
+}
+
+func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+  key := []byte(r.URL.Path)
+
+  // this is a list query
+  if len(r.URL.RawQuery) > 0 {
+    if r.Method != "GET" {
+      w.WriteHeader(403)
+      return
+    }
+    a.QueryHandler(key, w, r)
     return
   }
 
