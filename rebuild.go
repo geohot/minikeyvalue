@@ -17,9 +17,33 @@ type File struct {
   Mtime string
 }
 
-type Job struct {
+type RebuildRequest struct {
   vol string
-  req string
+  url string
+}
+
+func rebuild(db *leveldb.DB, req RebuildRequest) bool {
+  dat, err := remote_get(req.url)
+  if err != nil {
+    fmt.Println("ugh", err)
+    return false
+  }
+  var files []File
+  json.Unmarshal([]byte(dat), &files)
+  for _, f := range files {
+    key, err := base64.StdEncoding.DecodeString(f.Name)
+    if err != nil {
+      fmt.Println("ugh", err)
+      return false
+    }
+    err = db.Put(key, []byte(req.vol), nil)
+    if err != nil {
+      fmt.Println("ugh", err)
+      return false
+    }
+    fmt.Println(string(key), req.vol)
+  }
+  return true
 }
 
 func main() {
@@ -35,29 +59,15 @@ func main() {
   }
   defer db.Close()
 
-  var wg sync.WaitGroup
-  reqs := make(chan Job, 20000)
+  // TODO: empty leveldb
 
-  for i := 0; i < 128; i++ {
+  var wg sync.WaitGroup
+  reqs := make(chan RebuildRequest, 20000)
+
+  for i := 0; i < 64; i++ {
     go func() {
-      for job := range reqs {
-        dat, err := remote_get(job.req)
-        if err != nil {
-          fmt.Println("ugh", err)
-        }
-        var files []File
-        json.Unmarshal([]byte(dat), &files)
-        for _, f := range files {
-          key, err := base64.StdEncoding.DecodeString(f.Name)
-          if err != nil {
-            fmt.Println("ugh", err)
-          }
-          err = db.Put(key, []byte(job.vol), nil)
-          if err != nil {
-            fmt.Println("ugh", err)
-          }
-          fmt.Println(string(key), job.vol)
-        }
+      for req := range reqs {
+        rebuild(db, req)
         wg.Done()
       }
     }()
@@ -67,14 +77,13 @@ func main() {
     for j := 0; j < 256; j++ {
       for _, vol := range volumes {
         wg.Add(1)
-        req := fmt.Sprintf("http://%s/%02x/%02x/", vol, i, j)
-        reqs <- Job{vol, req}
+        url := fmt.Sprintf("http://%s/%02x/%02x/", vol, i, j)
+        reqs <- RebuildRequest{vol, url}
       }
     }
   }
   close(reqs)
 
   wg.Wait()
-
 }
 

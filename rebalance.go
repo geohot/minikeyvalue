@@ -68,7 +68,7 @@ func main() {
   var wg sync.WaitGroup
   reqs := make(chan RebalanceRequest, 20000)
 
-  for i := 0; i < 10; i++ {
+  for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
         rebalance(db, req)
@@ -86,11 +86,10 @@ func main() {
     kvolume := key2volume(key, volumes)
     if volume != kvolume {
       wg.Add(1)
-      req := RebalanceRequest{
+      reqs <- RebalanceRequest{
         key: key,
         volume: volume,
         kvolume: kvolume}
-      reqs <- req
     }
   }
   close(reqs)
