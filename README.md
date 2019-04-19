@@ -24,11 +24,11 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 ./master localhost:3001,localhost:3002 /tmp/indexdb/
 ```
 
-### Start Volume Server (default port 3001)
+### Start Volume Servers (default port 3001)
 
 ```
 # this is just nginx under the hood
-./volume /tmp/volume1/
+PORT=3001 ./volume /tmp/volume1/
 PORT=3002 ./volume /tmp/volume2/
 ```
 
@@ -36,16 +36,16 @@ PORT=3002 ./volume /tmp/volume2/
 
 ```
 # put "bigswag" in key "wehave"
-curl -L -X PUT -d bigswag localhost:3000/wehave
+curl -v -L -X PUT -d bigswag localhost:3000/wehave
 
 # get key "wehave" (should be "bigswag")
-curl -L localhost:3000/wehave
+curl -v -L localhost:3000/wehave
 
 # delete key "wehave"
-curl -L -X DELETE localhost:3000/wehave
+curl -v -L -X DELETE localhost:3000/wehave
 
 # list keys starting with "we"
-curl -L localhost:3000/we?list
+curl -v -L localhost:3000/we?list
 ```
 
 ### Rebalancing (to change the amount of volume servers)
