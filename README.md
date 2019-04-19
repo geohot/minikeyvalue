@@ -52,7 +52,7 @@ curl -L localhost:3000/we?list
 
 ```
 # must shut down master first, since LevelDB can only be accessed by one process
-./rebalance localhost:3001,localhost:3002 /tmp/cachedb/
+go run rebalance.go lib.go localhost:3001,localhost:3002 /tmp/cachedb/
 ```
 
 
