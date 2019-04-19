@@ -17,10 +17,15 @@ func key2path(key []byte) string {
   mkey := md5.Sum(key)
   b64key := base64.StdEncoding.EncodeToString(key)
 
+  // 2 byte layers deep, meaning a fanout of 256
+  // optimized for 2^24 = 16M files per volume server
   return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
 }
 
 func key2volume(key []byte, volumes []string) string {
+  // this is an intelligent way to pick the volume server for a file
+  // stable in the volume server name (not position!)
+  // and if more are added the correct portion will move (yay md5!)
   var best_score []byte = nil
   var ret string = ""
   for _, v := range volumes {
@@ -88,3 +93,4 @@ func remote_get(remote string) (string, error) {
   }
   return string(body), nil
 }
+
