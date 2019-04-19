@@ -46,31 +46,36 @@ type App struct {
   volumes []string
 }
 
+func (a *App) UnlockKey(key []byte) {
+  a.mlock.Lock()
+  delete(a.lock, string(key))
+  a.mlock.Unlock()
+}
+
+func (a *App) LockKey(key []byte) bool {
+  a.mlock.Lock()
+  defer a.mlock.Unlock()
+  _, prs := a.lock[string(key)]
+  if prs {
+    return false
+  }
+  a.lock[string(key)] = true
+  return true
+}
+
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  skey := r.URL.Path
+  key := []byte(r.URL.Path)
 
   // lock the key while a PUT or DELETE is in progress
   if r.Method == "PUT" || r.Method == "DELETE" {
-    a.mlock.Lock()
-    _, prs := a.lock[skey]
-    if prs {
-      a.mlock.Unlock()
+    if !a.LockKey(key) {
       // Conflict, retry later
       w.WriteHeader(409)
       return
     }
-    a.lock[skey] = true
-    a.mlock.Unlock()
-
-    // release the lock when this function exits
-    defer func() {
-      a.mlock.Lock()
-      delete(a.lock, skey)
-      a.mlock.Unlock()
-    }()
+    defer a.UnlockKey(key)
   }
 
-  key := []byte(skey)
   switch r.Method {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
@@ -79,7 +84,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
     volume := string(data)
-    if volume != key2volume(key, a.volumes) {
+    kvolume := key2volume(key, a.volumes)
+    if volume != kvolume {
       fmt.Println("on wrong volume, needs rebalance")
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
@@ -102,8 +108,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // we don't, compute the remote URL
-    volume := key2volume(key, a.volumes)
-    remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+    kvolume := key2volume(key, a.volumes)
+    remote := fmt.Sprintf("http://%s%s", kvolume, key2path(key))
 
     if remote_put(remote, r.ContentLength, r.Body) != nil {
       // we assume the remote wrote nothing if it failed
@@ -113,7 +119,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb
     // note that the key is locked, so nobody wrote to the leveldb
-    a.db.Put(key, []byte(volume), nil)
+    a.db.Put(key, []byte(kvolume), nil)
 
     // 201, all good
     w.WriteHeader(201)

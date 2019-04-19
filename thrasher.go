@@ -64,6 +64,7 @@ func main() {
     }
   }
 
-  fmt.Println("10000 write/read/delete in", time.Since(start))
+  fmt.Println(count, "write/read/delete in", time.Since(start))
+  fmt.Printf("thats %.2f/sec\n", float32(count)/(float32(time.Since(start))/1e9))
 }
 

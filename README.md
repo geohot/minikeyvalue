@@ -52,6 +52,7 @@ curl -L -X DELETE localhost:3000/wehave
 wrk -t2 -c100 -d10s http://localhost:3000/key
 
 starting thrasher
-1000 write/read/delete in 295.76852ms
+10000 write/read/delete in 2.620922675s
+thats 3815.40/sec
 ```
 
