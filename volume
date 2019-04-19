@@ -49,6 +49,9 @@ http {
 
       dav_methods PUT DELETE;
       dav_access group:rw all:r;
+
+      autoindex on;
+      autoindex_format json;
     }
   }
 }

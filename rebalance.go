@@ -53,18 +53,17 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
 }
 
 func main() {
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 256
+  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
   volumes := strings.Split(os.Args[1], ",")
   fmt.Println("rebalancing to", volumes)
 
   db, err := leveldb.OpenFile(os.Args[2], nil)
-  defer db.Close()
-
   if err != nil {
     fmt.Errorf("LevelDB open failed %s", err)
     return
   }
+  defer db.Close()
 
   var wg sync.WaitGroup
   reqs := make(chan RebalanceRequest, 20000)

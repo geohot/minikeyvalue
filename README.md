@@ -55,6 +55,11 @@ curl -L localhost:3000/we?list
 go run rebalance.go lib.go localhost:3001,localhost:3002 /tmp/cachedb/
 ```
 
+### Rebuilding (to regenerate the LevelDB)
+
+```
+go run rebuild.go lib.go localhost:3001,localhost:3002 /tmp/cachedbalt/
+```
 
 ### Performance
 

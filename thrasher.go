@@ -16,7 +16,7 @@ func main() {
   resp := make(chan bool, 20000)
   fmt.Println("starting thrasher")
 
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 256
+  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
   // 16 concurrent processes
   for i := 0; i < 16; i++ {

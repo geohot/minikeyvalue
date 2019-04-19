@@ -166,15 +166,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
   fmt.Printf("hello from go %s\n", os.Args[3])
 
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 256
+  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
   db, err := leveldb.OpenFile(os.Args[1], nil)
-  defer db.Close()
-
   if err != nil {
     fmt.Errorf("LevelDB open failed %s", err)
     return
   }
+  defer db.Close()
 
   http.ListenAndServe("127.0.0.1:"+os.Args[2], &App{db: db,
     lock: make(map[string]struct{}),
