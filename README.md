@@ -51,7 +51,7 @@ curl -L localhost:3000/we?list
 ### Rebalancing (to change the amount of volume servers)
 
 ```
-# must shut down master
+# must shut down master first, since LevelDB can only be accessed by one process
 ./rebalance localhost:3001,localhost:3002 /tmp/cachedb/
 ```
 
