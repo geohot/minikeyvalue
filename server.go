@@ -1,10 +1,7 @@
 package main
 
 import (
-  "encoding/base64"
-  "crypto/md5"
   "os"
-  "bytes"
   "sync"
   "strings"
   "fmt"
@@ -13,32 +10,6 @@ import (
   "github.com/syndtr/goleveldb/leveldb"
   "github.com/syndtr/goleveldb/leveldb/util"
 )
-
-// *** Hash Functions ***
-
-func key2path(key []byte) string {
-  mkey := md5.Sum(key)
-  b64key := base64.StdEncoding.EncodeToString(key)
-
-  return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
-}
-
-func key2volume(key []byte, volumes []string) string {
-  var best_score []byte = nil
-  var ret string = ""
-  for _, v := range volumes {
-    hash := md5.New()
-    hash.Write(key)
-    hash.Write([]byte(v))
-    score := hash.Sum(nil)
-    if best_score == nil || bytes.Compare(best_score, score) == -1 {
-      best_score = score
-      ret = v
-    }
-  }
-  //fmt.Println(string(key), ret, best_score)
-  return ret
-}
 
 // *** Master Server ***
 
@@ -124,7 +95,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
     volume := string(data)
-    // TODO: Check volume is in a.volumes
     kvolume := key2volume(key, a.volumes)
     if volume != kvolume {
       fmt.Println("on wrong volume, needs rebalance")
@@ -160,7 +130,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb
     // note that the key is locked, so nobody wrote to the leveldb
-    a.db.Put(key, []byte(kvolume), nil)
+    err = a.db.Put(key, []byte(kvolume), nil)
+    if err != nil {
+      // should we delete?
+      w.WriteHeader(500)
+      return
+    }
 
     // 201, all good
     w.WriteHeader(201)

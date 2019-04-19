@@ -48,6 +48,14 @@ curl -L -X DELETE localhost:3000/wehave
 curl -L localhost:3000/we?list
 ```
 
+### Rebalancing (to change the amount of volume servers)
+
+```
+# must shut down master
+./rebalance localhost:3001,localhost:3002 /tmp/cachedb/
+```
+
+
 ### Performance
 
 ```
