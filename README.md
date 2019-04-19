@@ -4,9 +4,9 @@
 
 Fed up with the complexity of distributed filesystems?
 
-minikeyvalue is a ~200 line (not including tests!) distributed key value store. Optimized for reading files between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
+minikeyvalue is a ~300 line (not including tests!) distributed key value store. Optimized for values between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
 
-Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage and a LevelDB for cache. The cache can be reconstructed from the filesystem.
+Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage and a LevelDB for indexing. The index can be reconstructed with rebuild. Volumes can be added or removed with rebalance.
 
 ### API
 
@@ -21,7 +21,7 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 
 ```
 # this is using the code in server.go
-./master localhost:3001,localhost:3002 /tmp/cachedb/
+./master localhost:3001,localhost:3002 /tmp/indexdb/
 ```
 
 ### Start Volume Server (default port 3001)
@@ -52,13 +52,13 @@ curl -L localhost:3000/we?list
 
 ```
 # must shut down master first, since LevelDB can only be accessed by one process
-go run rebalance.go lib.go localhost:3001,localhost:3002 /tmp/cachedb/
+go run rebalance.go lib.go localhost:3001,localhost:3002 /tmp/indexdb/
 ```
 
 ### Rebuilding (to regenerate the LevelDB)
 
 ```
-go run rebuild.go lib.go localhost:3001,localhost:3002 /tmp/cachedbalt/
+go run rebuild.go lib.go localhost:3001,localhost:3002 /tmp/indexdbalt/
 ```
 
 ### Performance
