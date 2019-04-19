@@ -48,7 +48,7 @@ func main() {
 
   reqs := make(chan string, 1000)
   messages := make(chan string)
-  fmt.Println("start")
+  fmt.Println("starting thrasher")
 
   // 16 concurrent processes
   for i := 0; i < 16; i++ {
@@ -82,6 +82,6 @@ func main() {
     <-messages
   }
 
-  fmt.Println("1000 writes", time.Since(start))
+  fmt.Println("1000 write/read/delete in", time.Since(start))
 }
 

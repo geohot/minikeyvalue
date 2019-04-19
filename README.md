@@ -6,14 +6,14 @@ Fed up with the complexity of distributed filesystems?
 
 minikeyvalue is a ~200 line (not including tests!) distributed key value store. Optimized for reading files between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
 
-Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage, and each value is a file.
+Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage and a LevelDB for cache. The cache can be reconstructed from the filesystem.
 
 ### API
 
 - GET /key
   - 302 redirect to nginx volume server.
 - PUT /key
-  - Blocks. 201 = written, anything else = nothing happened.
+  - Blocks. 201 = written, anything else = probably not written.
 - DELETE /key
   - Blocks. 204 = deleted, anything else = probably deleted.
 
@@ -51,7 +51,7 @@ curl -L -X DELETE localhost:3000/wehave
 # Fetching non-existent key: 116338 req/sec
 wrk -t2 -c100 -d10s http://localhost:3000/key
 
-# Fetching existent key: 105188 req/sec (idk if redirect is being followed)
-wrk -t2 -c100 -d10s http://localhost:3000/wehave
+starting thrasher
+1000 write/read/delete in 295.76852ms
 ```
 
