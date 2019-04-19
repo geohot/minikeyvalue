@@ -11,4 +11,3 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 ENV GOPATH $HOME/go  
 COPY server.go bringup.sh master volume test.py /tmp/
 
-
