@@ -112,6 +112,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // push to leveldb
+    // note that the key is locked, so nobody wrote to the leveldb
     a.db.Put(key, []byte(volume), nil)
 
     // 201, all good

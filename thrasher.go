@@ -1,6 +1,7 @@
 package main
 
 import (
+  "os"
   "fmt"
   "time"
   "strings"
@@ -10,8 +11,8 @@ import (
 func main() {
   rand.Seed(time.Now().UTC().UnixNano())
 
-  reqs := make(chan string, 1000)
-  messages := make(chan string)
+  reqs := make(chan string, 20000)
+  resp := make(chan bool, 20000)
   fmt.Println("starting thrasher")
 
   // 16 concurrent processes
@@ -23,32 +24,43 @@ func main() {
         err := remote_put("http://localhost:3000/"+key, int64(len(value)), strings.NewReader(value))
         if err != nil {
           fmt.Println("PUT FAILED", err)
+          resp <- false
+          continue
         }
 
         ss, err := remote_get("http://localhost:3000/"+key)
         if err != nil || ss != value {
           fmt.Println("GET FAILED", err, ss, value)
+          resp <- false
+          continue
         }
 
         err = remote_delete("http://localhost:3000/"+key)
         if err != nil {
           fmt.Println("DELETE FAILED", err)
+          resp <- false
+          continue
         }
-        messages <- ss
+        resp <- true
       }
     }()
   }
 
+  count := 10000
+
   start := time.Now()
-  for i := 0; i < 1000; i++ {
+  for i := 0; i < count; i++ {
     key := fmt.Sprintf("benchmark-%d", rand.Int())
     reqs <- key
   }
 
-  for i := 0; i < 1000; i++ {
-    <-messages
+  for i := 0; i < count; i++ {
+    if <-resp == false {
+      fmt.Println("ERROR on", i)
+      os.Exit(-1)
+    }
   }
 
-  fmt.Println("1000 write/read/delete in", time.Since(start))
+  fmt.Println("10000 write/read/delete in", time.Since(start))
 }
 

@@ -9,12 +9,12 @@ import (
 )
 
 func remote_delete(remote string) error {
-  client := &http.Client{}
   req, err := http.NewRequest("DELETE", remote, nil)
-  resp, err := client.Do(req)
+  resp, err := http.DefaultClient.Do(req)
   if err != nil {
     return err
   }
+  defer resp.Body.Close()
   if resp.StatusCode != 204 {
     return errors.New(fmt.Sprintf("remote_delete: wrong status code %d", resp.StatusCode))
   }
@@ -22,13 +22,13 @@ func remote_delete(remote string) error {
 }
 
 func remote_put(remote string, length int64, body io.Reader) error {
-  client := &http.Client{}
   req, err := http.NewRequest("PUT", remote, body)
   req.ContentLength = length
-  resp, err := client.Do(req)
+  resp, err := http.DefaultClient.Do(req)
   if err != nil {
     return err
   }
+  defer resp.Body.Close()
   if resp.StatusCode != 201 && resp.StatusCode != 204 {
     return errors.New(fmt.Sprintf("remote_put: wrong status code %d", resp.StatusCode))
   }
