@@ -147,6 +147,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
   fmt.Printf("hello from go %s\n", os.Args[3])
 
+  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 256
+
   db, err := leveldb.OpenFile(os.Args[1], nil)
   defer db.Close()
 
