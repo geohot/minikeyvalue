@@ -15,7 +15,7 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 - PUT /key
   - Blocks. 201 = written, anything else = probably not written.
 - DELETE /key
-  - Blocks. 204 = deleted, anything else = probably deleted.
+  - Blocks. 204 = deleted, anything else = probably not deleted.
 
 ### Start Master Server (default port 3000)
 
