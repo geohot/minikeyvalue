@@ -56,7 +56,7 @@ func remote_delete(remote string) error {
   }
   defer resp.Body.Close()
   if resp.StatusCode != 204 {
-    return errors.New(fmt.Sprintf("remote_delete: wrong status code %d", resp.StatusCode))
+    return fmt.Errorf("remote_delete: wrong status code %d", resp.StatusCode)
   }
   return nil
 }
@@ -73,7 +73,7 @@ func remote_put(remote string, length int64, body io.Reader) error {
   }
   defer resp.Body.Close()
   if resp.StatusCode != 201 && resp.StatusCode != 204 {
-    return errors.New(fmt.Sprintf("remote_put: wrong status code %d", resp.StatusCode))
+    return fmt.Errorf("remote_put: wrong status code %d", resp.StatusCode)
   }
   return nil
 }
