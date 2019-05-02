@@ -24,8 +24,7 @@ func main() {
       for {
         key := <-reqs
         value := fmt.Sprintf("value-%d", rand.Int())
-        err := remote_put("http://localhost:3000/"+key, int64(len(value)), strings.NewReader(value))
-        if err != nil {
+        if err := remote_put("http://localhost:3000/"+key, int64(len(value)), strings.NewReader(value)); err != nil {
           fmt.Println("PUT FAILED", err)
           resp <- false
           continue
@@ -38,8 +37,7 @@ func main() {
           continue
         }
 
-        err = remote_delete("http://localhost:3000/"+key)
-        if err != nil {
+        if err := remote_delete("http://localhost:3000/"+key); err != nil {
           fmt.Println("DELETE FAILED", err)
           resp <- false
           continue
