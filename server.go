@@ -45,21 +45,21 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
     for iter.Next() {
       keys = append(keys, string(iter.Key()))
       if len(keys) > 1000000 {   // too large
-        w.WriteHeader(413)
+        w.WriteHeader(http.StatusRequestEntityTooLarge)
         return
       }
     }
     str, err := json.Marshal(keys)
     if err != nil {
-      w.WriteHeader(500)
+      w.WriteHeader(http.StatusInternalServerError)
       return
     }
     w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(200)
+    w.WriteHeader(http.StatusOK)
     w.Write(str)
     return
   default:
-    w.WriteHeader(403)
+    w.WriteHeader(http.StatusForbidden)
     return
   }
 }
@@ -69,8 +69,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
   // this is a list query
   if len(r.URL.RawQuery) > 0 {
-    if r.Method != "GET" {
-      w.WriteHeader(403)
+    if r.Method != http.MethodGet {
+      w.WriteHeader(http.StatusForbidden)
       return
     }
     a.QueryHandler(key, w, r)
@@ -78,20 +78,20 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 
   // lock the key while a PUT or DELETE is in progress
-  if r.Method == "PUT" || r.Method == "DELETE" {
+  if r.Method == http.MethodPut || r.Method == http.MethodDelete {
     if !a.LockKey(key) {
       // Conflict, retry later
-      w.WriteHeader(409)
+      w.WriteHeader(http.StatusConflict)
       return
     }
     defer a.UnlockKey(key)
   }
 
   switch r.Method {
-  case "GET", "HEAD":
+  case http.MethodGet, http.MethodHead:
     data, err := a.db.Get(key, nil)
     if err == leveldb.ErrNotFound {
-      w.WriteHeader(404)
+      w.WriteHeader(http.StatusNotFound)
       return
     }
     volume := string(data)
@@ -101,11 +101,11 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
-    w.WriteHeader(302)
-  case "PUT":
+    w.WriteHeader(http.StatusFound)
+  case http.MethodPut:
     // no empty values
     if r.ContentLength == 0 {
-      w.WriteHeader(411)
+      w.WriteHeader(http.StatusLengthRequired)
       return
     }
 
@@ -114,7 +114,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // check if we already have the key
     if err != leveldb.ErrNotFound {
       // Forbidden to overwrite with PUT
-      w.WriteHeader(403)
+      w.WriteHeader(http.StatusForbidden)
       return
     }
 
@@ -124,7 +124,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     if remote_put(remote, r.ContentLength, r.Body) != nil {
       // we assume the remote wrote nothing if it failed
-      w.WriteHeader(500)
+      w.WriteHeader(http.StatusInternalServerError)
       return
     }
 
@@ -133,17 +133,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     err = a.db.Put(key, []byte(kvolume), nil)
     if err != nil {
       // should we delete?
-      w.WriteHeader(500)
+      w.WriteHeader(http.StatusInternalServerError)
       return
     }
 
     // 201, all good
-    w.WriteHeader(201)
-  case "DELETE":
+    w.WriteHeader(http.StatusCreated)
+  case http.MethodDelete:
     // delete the key, first locally
     data, err := a.db.Get(key, nil)
     if err == leveldb.ErrNotFound {
-      w.WriteHeader(404)
+      w.WriteHeader(http.StatusNotFound)
       return
     }
 
@@ -154,12 +154,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     if remote_delete(remote) != nil {
       // if this fails, it's possible to get an orphan file
       // but i'm not really sure what else to do?
-      w.WriteHeader(500)
+      w.WriteHeader(http.StatusInternalServerError)
       return
     }
 
     // 204, all good
-    w.WriteHeader(204)
+    w.WriteHeader(http.StatusNoContent)
   }
 }
 

@@ -46,7 +46,7 @@ func key2volume(key []byte, volumes []string) string {
 // *** Remote Access Functions ***
 
 func remote_delete(remote string) error {
-  req, err := http.NewRequest("DELETE", remote, nil)
+  req, err := http.NewRequest(http.MethodDelete, remote, nil)
   if err != nil {
     return err
   }
@@ -55,14 +55,14 @@ func remote_delete(remote string) error {
     return err
   }
   defer resp.Body.Close()
-  if resp.StatusCode != 204 {
+  if resp.StatusCode != http.StatusNoContent {
     return fmt.Errorf("remote_delete: wrong status code %d", resp.StatusCode)
   }
   return nil
 }
 
 func remote_put(remote string, length int64, body io.Reader) error {
-  req, err := http.NewRequest("PUT", remote, body)
+  req, err := http.NewRequest(http.MethodPut, remote, body)
   if err != nil {
     return err
   }
@@ -72,7 +72,7 @@ func remote_put(remote string, length int64, body io.Reader) error {
     return err
   }
   defer resp.Body.Close()
-  if resp.StatusCode != 201 && resp.StatusCode != 204 {
+  if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
     return fmt.Errorf("remote_put: wrong status code %d", resp.StatusCode)
   }
   return nil
@@ -83,7 +83,7 @@ func remote_get(remote string) (string, error) {
   if err != nil {
     return "", err
   }
-  if resp.StatusCode != 200 {
+  if resp.StatusCode != http.StatusOK {
     return "", errors.New(fmt.Sprintf("remote_get: wrong status code %d", resp.StatusCode))
   }
   defer resp.Body.Close()
