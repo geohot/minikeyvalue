@@ -130,8 +130,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb
     // note that the key is locked, so nobody wrote to the leveldb
-    err = a.db.Put(key, []byte(kvolume), nil)
-    if err != nil {
+    if err := a.db.Put(key, []byte(kvolume), nil); err != nil {
       // should we delete?
       w.WriteHeader(500)
       return
@@ -170,7 +169,7 @@ func main() {
 
   db, err := leveldb.OpenFile(os.Args[1], nil)
   if err != nil {
-    fmt.Errorf("LevelDB open failed %s", err)
+    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
     return
   }
   defer db.Close()

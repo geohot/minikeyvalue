@@ -36,8 +36,7 @@ func rebuild(db *leveldb.DB, req RebuildRequest) bool {
       fmt.Println("ugh", err)
       return false
     }
-    err = db.Put(key, []byte(req.vol), nil)
-    if err != nil {
+    if err := db.Put(key, []byte(req.vol), nil); err != nil {
       fmt.Println("ugh", err)
       return false
     }
@@ -54,7 +53,7 @@ func main() {
 
   db, err := leveldb.OpenFile(os.Args[2], nil)
   if err != nil {
-    fmt.Errorf("LevelDB open failed %s", err)
+    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
     return
   }
   defer db.Close()

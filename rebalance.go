@@ -30,22 +30,19 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
   }
 
   // write
-  err = remote_put(remote_to, int64(len(ss)), strings.NewReader(ss))
-  if err != nil {
+  if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
     fmt.Println("put error", err, remote_to)
     return false
   }
 
   // update db
-  err = db.Put(req.key, []byte(req.kvolume), nil)
-  if err != nil {
+  if err := db.Put(req.key, []byte(req.kvolume), nil); err != nil {
     fmt.Println("put db error", err)
     return false
   }
 
   // delete
-  err = remote_delete(remote_from)
-  if err != nil {
+  if err := remote_delete(remote_from); err != nil {
     fmt.Println("delete error", err, remote_from)
     return false
   }
@@ -60,7 +57,7 @@ func main() {
 
   db, err := leveldb.OpenFile(os.Args[2], nil)
   if err != nil {
-    fmt.Errorf("LevelDB open failed %s", err)
+    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
     return
   }
   defer db.Close()
