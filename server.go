@@ -174,7 +174,7 @@ func main() {
   }
   defer db.Close()
 
-  http.ListenAndServe("127.0.0.1:"+os.Args[2], &App{db: db,
+  http.ListenAndServe(":"+os.Args[2], &App{db: db,
     lock: make(map[string]struct{}),
     volumes: strings.Split(os.Args[3], ",")})
 }

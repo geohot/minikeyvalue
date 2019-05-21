@@ -46,6 +46,12 @@ curl -v -L -X DELETE localhost:3000/wehave
 
 # list keys starting with "we"
 curl -v -L localhost:3000/we?list
+
+# put file in key "file.txt"
+curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt
+
+# get file in key "file.txt"
+curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 ```
 
 ### Rebalancing (to change the amount of volume servers)
