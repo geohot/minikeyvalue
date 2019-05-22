@@ -91,6 +91,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
     if err == leveldb.ErrNotFound {
+      // manually setting content length is required for HEAD (but shouldn't need to be in 404 case)
+      // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
+      w.Header().Set("Content-Length", "0")
       w.WriteHeader(404)
       return
     }
@@ -101,6 +104,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
+    // manually setting content length is required for HEAD (but shouldn't need to be in 302 case)
+    // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
+    w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
   case "PUT":
     // no empty values

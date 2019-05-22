@@ -108,13 +108,18 @@ class TestMiniKeyValue(unittest.TestCase):
     key = self.get_fresh_key()
     r = requests.head(key, allow_redirects=True)
     self.assertEqual(r.status_code, 404)
+    # no redirect, content length should be zero
+    self.assertEqual(int(r.headers['content-length']), 0)
 
     # head exist
     key = self.get_fresh_key()
-    r = requests.put(key, data="onyou")
+    data = "onyou"
+    r = requests.put(key, data=data)
     self.assertEqual(r.status_code, 201)
     r = requests.head(key, allow_redirects=True)
     self.assertEqual(r.status_code, 200)
+    # redirect, content length should be size of data
+    self.assertEqual(int(r.headers['content-length']), len(data))
 
   def test_large_key(self):
     key = self.get_fresh_key()
