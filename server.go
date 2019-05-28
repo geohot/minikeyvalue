@@ -180,7 +180,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-  fmt.Printf("hello from go %s\n", os.Args[3])
+  fmt.Printf("database: %s\n", os.Args[1])
+  fmt.Printf("server port: %s\n", os.Args[2])
+  fmt.Printf("volume servers: %s\n", os.Args[3])
 
   if len(os.Args) > 4 {
     fallback = os.Args[4]
