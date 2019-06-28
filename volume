@@ -11,18 +11,25 @@ done
 
 CONF=$(mktemp)
 echo "
-daemon off;
+daemon off; # docker
+worker_rlimit_nofile 100000;
 worker_processes auto;
+thread_pool default threads=32 max_queue=65536;
+pcre_jit on;
 
 error_log /dev/stderr;
 pid $VOLUME/nginx.pid;
 
 events {
-  multi_accept on;
-  worker_connections 4096;
+    use epoll;
+    multi_accept on;
+    accept_mutex off;
+    worker_connections 4096;
 }
 
 http {
+  aio threads=default;
+  
   sendfile on;
   sendfile_max_chunk 1024k;
 
@@ -30,14 +37,19 @@ http {
   tcp_nodelay on;
 
   open_file_cache off;
+  keepalive_requests 100;
+  keepalive_timeout 600;
   types_hash_max_size 2048;
 
   server_tokens off;
 
   default_type application/octet-stream;
 
+  access_log /dev/stdout; # docker
+  error_log /dev/stderr error; # docker
+
   server {
-    listen $PORT default_server;
+    listen $PORT default_server backlog=4096;
     location / {
       root $VOLUME;
 
