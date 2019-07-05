@@ -161,6 +161,7 @@ class TestMiniKeyValue(unittest.TestCase):
 if __name__ == '__main__':
   # wait for servers
   for port in [3000,3001,3002]:
+    print("check port %d" % port)
     while 1:
       try:
         s = socket.create_connection(("localhost", port), timeout=0.5)

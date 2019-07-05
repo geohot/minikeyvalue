@@ -11,6 +11,10 @@ import (
   "github.com/syndtr/goleveldb/leveldb/util"
 )
 
+// *** Params ***
+
+var fallback string;
+
 // *** Master Server ***
 
 type App struct {
@@ -90,17 +94,24 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   switch r.Method {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
+    var volume string
     if err == leveldb.ErrNotFound {
-      // manually setting content length is required for HEAD (but shouldn't need to be in 404 case)
-      // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
-      w.Header().Set("Content-Length", "0")
-      w.WriteHeader(404)
-      return
-    }
-    volume := string(data)
-    kvolume := key2volume(key, a.volumes)
-    if volume != kvolume {
-      fmt.Println("on wrong volume, needs rebalance")
+      if fallback == "" {
+        // manually setting content length is required for HEAD (but shouldn't need to be in 404 case)
+        // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
+        w.Header().Set("Content-Length", "0")
+        w.WriteHeader(404)
+        return
+      } else {
+        // fall through to fallback
+        volume = fallback
+      }
+    } else {
+      volume = string(data)
+      kvolume := key2volume(key, a.volumes)
+      if volume != kvolume {
+        fmt.Println("on wrong volume, needs rebalance")
+      }
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
@@ -170,6 +181,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
   fmt.Printf("hello from go %s\n", os.Args[3])
+
+  if len(os.Args) > 4 {
+    fallback = os.Args[4]
+  }
 
   http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
