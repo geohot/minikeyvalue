@@ -14,15 +14,19 @@ create_directories() {
   echo "done"
 }
 
-if [ "$SUBVOLUMES" -eq "1" ]; then
-  create_directories $VOLUME
-else
-  for VV in $(seq 0 $(($SUBVOLUMES - 1)))
-  do
-    create_directories $VOLUME/sv0${VV}
-  done
+SENTINEL=$VOLUME/created_directories
+if [ ! -f "$SENTINEL" ]; then
+  if [ "$SUBVOLUMES" -eq "1" ]; then
+    create_directories $VOLUME
+  else
+    for VV in $(seq 0 $(($SUBVOLUMES - 1)))
+    do
+      create_directories $VOLUME/sv0${VV}
+    done
+  fi
+  touch $SENTINEL
+  echo "done creating directories"
 fi
-
 
 CONF=$(mktemp)
 echo "
