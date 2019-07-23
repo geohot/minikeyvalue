@@ -29,14 +29,21 @@ func key2path(key []byte) string {
   return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
 }
 
+type sortvol struct {
+  score []byte
+  volume string
+}
+type byScore []sortvol
+func (s byScore) Len() int { return len(s) }
+func (s byScore) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s byScore) Less(i, j int) bool {
+  return bytes.Compare(s[i].score, s[j].score) == 1
+}
+
 func key2volume(key []byte, volumes []string, count int) []string {
   // this is an intelligent way to pick the volume server for a file
   // stable in the volume server name (not position!)
   // and if more are added the correct portion will move (yay md5!)
-  type sortvol struct {
-    score []byte
-    volume string
-  }
   var sortvols []sortvol
   for _, v := range volumes {
     hash := md5.New()
@@ -45,10 +52,7 @@ func key2volume(key []byte, volumes []string, count int) []string {
     score := hash.Sum(nil)
     sortvols = append(sortvols, sortvol{score, v})
   }
-  sort.SliceStable(sortvols,
-    func(i int, j int) bool {
-      return bytes.Compare(sortvols[i].score, sortvols[j].score) == 1
-    })
+  sort.Stable(byScore(sortvols))
   // go should have a map function
   // this adds the subvolumes
   var ret []string
