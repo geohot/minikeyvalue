@@ -14,21 +14,22 @@ import (
 
 // *** Hash Functions ***
 
-func key2path(key []byte, subvolumes int, subvolume int) string {
+func key2path(key []byte, subvolumes int, volume string) string {
   mkey := md5.Sum(key)
   b64key := base64.StdEncoding.EncodeToString(key)
 
-  if subvolumes == 1 || subvolume == -1 {
+  if subvolumes == 1 {
     // 2 byte layers deep, meaning a fanout of 256
     // optimized for 2^24 = 16M files per volume server
     return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
   } else {
     // we are using subvolumes
-    // note: if it was just a function of the key, the files would always be grouped
-    // by making it depend on the replica number, they won't be
-    // TODO: is the multiply needed?, it's Knuth's magic hash number
-    subvoln := ((uint32(mkey[2]) + uint32(subvolume)) * 2654435769) % uint32(subvolumes)
-    return fmt.Sprintf("/%02x/%02x/%02x/%s", subvoln, mkey[0], mkey[1], b64key)
+    // same hash function used to determine volume placement
+    hash := md5.New()
+    hash.Write(key)
+    hash.Write([]byte(volume))
+    score := hash.Sum(nil)
+    return fmt.Sprintf("/%02x/%02x/%02x/%s", int(score[15]) % subvolumes, mkey[0], mkey[1], b64key)
   }
 }
 
