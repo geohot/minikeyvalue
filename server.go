@@ -135,7 +135,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     } else {
       volumes := strings.Split(string(data), ",")
       if len(volumes) != replicas {
-        fmt.Println("on wrong number of volumes, needs rebalance")
+        fmt.Println("on wrong number of volumes, needs rebalance", replicas, volumes)
       } else {
         kvolumes := key2volume(key, a.volumes, replicas)
         for i := 0; i < replicas; i++ {

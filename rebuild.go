@@ -63,7 +63,7 @@ func main() {
   var wg sync.WaitGroup
   reqs := make(chan RebuildRequest, 20000)
 
-  for i := 0; i < 64; i++ {
+  for i := 0; i < 4; i++ {
     go func() {
       for req := range reqs {
         rebuild(db, req)
@@ -72,12 +72,19 @@ func main() {
     }()
   }
 
-  for i := 0; i < 256; i++ {
-    for j := 0; j < 256; j++ {
-      for _, vol := range volumes {
-        wg.Add(1)
-        url := fmt.Sprintf("http://%s/%02x/%02x/", vol, i, j)
-        reqs <- RebuildRequest{vol, url}
+  for sv := 0; sv < int(subvolumes); sv++ {
+    for i := 0; i < 256; i++ {
+      for j := 0; j < 256; j++ {
+        for _, vol := range volumes {
+          wg.Add(1)
+          var url string
+          if subvolumes == 1 {
+            url = fmt.Sprintf("http://%s/%02x/%02x/", vol, i, j)
+          } else {
+            url = fmt.Sprintf("http://%s/sv%02x/%02x/%02x/", vol, sv, i, j)
+          }
+          reqs <- RebuildRequest{vol, url}
+        }
       }
     }
   }
