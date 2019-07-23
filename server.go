@@ -18,8 +18,9 @@ import (
 
 // *** Params ***
 
-var fallback string = "";
-var replicas int = 3;
+var fallback string = ""
+var replicas int = 3
+var subvolumes int = 1
 
 // *** Master Server ***
 
@@ -128,6 +129,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
     var volume string
+    var subvolume int
     if err == leveldb.ErrNotFound {
       if fallback == "" {
         w.Header().Set("Content-Length", "0")
@@ -136,6 +138,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       } else {
         // fall through to fallback
         volume = fallback
+        subvolume = -1
       }
     } else {
       volumes := strings.Split(string(data), ",")
@@ -150,9 +153,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         }
       }
       // fetch from a random valid volume
-      volume = volumes[rand.Intn(len(volumes))]
+      subvolume = rand.Intn(len(volumes))
+      volume = volumes[subvolume]
     }
-    remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+    remote := fmt.Sprintf("http://%s%s", volume, key2path(key, subvolumes, subvolume))
     w.Header().Set("Location", remote)
     w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
@@ -184,7 +188,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         // if we have already read the contents into the TeeReader
         body = bytes.NewReader(buf.Bytes())
       }
-      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
+      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key, subvolumes, i))
       if remote_put(remote, bodylen, body) != nil {
         // we assume the remote wrote nothing if it failed
         // TODO: rollback a partial replica write
@@ -215,8 +219,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     a.db.Delete(key, nil)
 
     // then remotely
-    for _, volume := range strings.Split(string(data), ",") {
-      remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+    for i, volume := range strings.Split(string(data), ",") {
+      remote := fmt.Sprintf("http://%s%s", volume, key2path(key, subvolumes, i))
       if remote_delete(remote) != nil {
         // if this fails, it's possible to get an orphan file
         // but i'm not really sure what else to do?

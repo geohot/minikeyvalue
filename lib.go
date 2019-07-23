@@ -14,13 +14,19 @@ import (
 
 // *** Hash Functions ***
 
-func key2path(key []byte) string {
+func key2path(key []byte, subvolumes int, subvolume int) string {
   mkey := md5.Sum(key)
   b64key := base64.StdEncoding.EncodeToString(key)
 
-  // 2 byte layers deep, meaning a fanout of 256
-  // optimized for 2^24 = 16M files per volume server
-  return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
+  if subvolumes == 1 || subvolume == -1 {
+    // 2 byte layers deep, meaning a fanout of 256
+    // optimized for 2^24 = 16M files per volume server
+    return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
+  } else {
+    // we are using subvolumes
+    subvoln := (int(mkey[2]) + subvolume) % subvolumes
+    return fmt.Sprintf("/%02x/%02x/%02x/%s", subvoln, mkey[0], mkey[1], b64key)
+  }
 }
 
 func key2volume(key []byte, volumes []string, count int) []string {
