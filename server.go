@@ -2,7 +2,9 @@ package main
 
 import (
   "os"
+  "io"
   "sync"
+  "bytes"
   "strings"
   "strconv"
   "fmt"
@@ -17,7 +19,7 @@ import (
 // *** Params ***
 
 var fallback string = "";
-var replicas int = 1;
+var replicas int = 3;
 
 // *** Master Server ***
 
@@ -171,18 +173,30 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // we don't have the key, compute the remote URL
-    kvolume := key2volume(key, a.volumes, replicas)[0]
-    remote := fmt.Sprintf("http://%s%s", kvolume, key2path(key))
+    kvolumes := key2volume(key, a.volumes, replicas)
 
-    if remote_put(remote, r.ContentLength, r.Body) != nil {
-      // we assume the remote wrote nothing if it failed
-      w.WriteHeader(500)
-      return
+    // write to each replica
+    var buf bytes.Buffer
+    body := io.TeeReader(r.Body, &buf)
+    bodylen := r.ContentLength
+    for i := 0; i < len(kvolumes); i++ {
+      if (i != 0) {
+        // if we have already read the contents into the TeeReader
+        body = bytes.NewReader(buf.Bytes())
+      }
+      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
+      if remote_put(remote, bodylen, body) != nil {
+        // we assume the remote wrote nothing if it failed
+        // TODO: rollback a partial replica write
+        fmt.Printf("replica %d write failed: %s\n", i, remote)
+        w.WriteHeader(500)
+        return
+      }
     }
 
     // push to leveldb
     // note that the key is locked, so nobody wrote to the leveldb
-    if err := a.db.Put(key, []byte(kvolume), nil); err != nil {
+    if err := a.db.Put(key, []byte(strings.Join(kvolumes, ",")), nil); err != nil {
       // should we delete?
       w.WriteHeader(500)
       return
@@ -201,12 +215,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     a.db.Delete(key, nil)
 
     // then remotely
-    remote := fmt.Sprintf("http://%s%s", string(data), key2path(key))
-    if remote_delete(remote) != nil {
-      // if this fails, it's possible to get an orphan file
-      // but i'm not really sure what else to do?
-      w.WriteHeader(500)
-      return
+    for _, volume := range strings.Split(string(data), ",") {
+      remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+      if remote_delete(remote) != nil {
+        // if this fails, it's possible to get an orphan file
+        // but i'm not really sure what else to do?
+        w.WriteHeader(500)
+        return
+      }
     }
 
     // 204, all good
