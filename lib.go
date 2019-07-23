@@ -47,7 +47,7 @@ func key2volume(key []byte, volumes []string, count int) []string {
   }
   sort.SliceStable(sortvols,
     func(i int, j int) bool {
-      return bytes.Compare(sortvols[i].score, sortvols[j].score) == -1
+      return bytes.Compare(sortvols[i].score, sortvols[j].score) == 1
     })
   // go should have a map function
   // this adds the subvolumes
