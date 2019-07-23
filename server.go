@@ -245,8 +245,7 @@ func main() {
 
   db, err := leveldb.OpenFile(os.Args[1], nil)
   if err != nil {
-    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
-    return
+    panic(fmt.Errorf("LevelDB open failed %s", err))
   }
   defer db.Close()
 

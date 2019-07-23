@@ -9,9 +9,9 @@ import (
 
 func main() {
   db1, err1 := leveldb.OpenFile(os.Args[1], nil)
-  if err1 != nil { panic("db1 open failed") }
+  if err1 != nil { panic(fmt.Sprintf("db1 open failed", err1)) }
   db2, err2 := leveldb.OpenFile(os.Args[2], nil)
-  if err2 != nil { panic("db2 open failed") }
+  if err2 != nil { panic(fmt.Sprintf("db2 open failed", err2)) }
 
   iter1 := db1.NewIterator(nil, nil)
   iter2 := db2.NewIterator(nil, nil)

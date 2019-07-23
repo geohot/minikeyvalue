@@ -3,7 +3,7 @@ ALTDB=/tmp/indexdbalt/
 echo "rebuild and rebalance test"
 
 # take down main server (now leaves nginx running)
-kill $(pgrep -f "./master")
+kill $(pgrep -f "indexdb")
 
 # rebuild and compare the database
 go run rebuild.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB
