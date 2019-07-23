@@ -19,8 +19,8 @@ import (
 // *** Params ***
 
 var fallback string = ""
-var replicas int = 3
-var subvolumes int = 1
+var replicas int = 1
+var subvolumes int = 3
 
 // *** Master Server ***
 

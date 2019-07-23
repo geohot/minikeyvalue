@@ -25,11 +25,13 @@ func key2path(key []byte, subvolumes int, volume string) string {
   } else {
     // we are using subvolumes
     // same hash function used to determine volume placement
+    // with a different salt
     hash := md5.New()
+    hash.Write([]byte("subvolume"))
     hash.Write(key)
     hash.Write([]byte(volume))
     score := hash.Sum(nil)
-    return fmt.Sprintf("/%02x/%02x/%02x/%s", int(score[15]) % subvolumes, mkey[0], mkey[1], b64key)
+    return fmt.Sprintf("/sv%02x/%02x/%02x/%s", int(score[0]) % subvolumes, mkey[0], mkey[1], b64key)
   }
 }
 
