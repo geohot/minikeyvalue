@@ -5,6 +5,7 @@ import hashlib
 import binascii
 import unittest
 import requests
+from urllib.parse import quote_plus
 import time
 import timeit
 import logging
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class TestMiniKeyValue(unittest.TestCase):
+  maxDiff = None
+  
   def get_fresh_key(self):
     return b"http://localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
@@ -145,13 +148,37 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 201)
 
     r = requests.get(key+b"?list")
+    self.assertEqual(r.status_code, 200)
     bkey = key.decode('utf-8')
     bkey = "/"+bkey.split("/")[-1]
-    self.assertEqual(r.json(), [bkey+"1", bkey+"2"])
+    self.assertEqual(r.json(), {"next": "", "keys": [bkey+"1", bkey+"2"]})
 
   def test_json_list_null(self):
     r = requests.get(self.get_fresh_key()+b"/DOES_NOT_EXIST?list")
-    self.assertEqual(r.json(), [])
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.json(), {"next": "", "keys": []})
+
+  def test_json_list_limit(self):
+    prefix = self.get_fresh_key()
+    keys = []
+    data = "0"
+    limit = 10
+    for i in range(limit+2):
+      key = prefix+str(i).encode()
+      r = requests.put(key, data=data)
+      self.assertEqual(r.status_code, 201)
+      keys.append("/"+key.decode().split("/")[-1])
+    # leveldb is sorted alphabetically
+    keys = sorted(keys)
+    # should return first page
+    r = requests.get(prefix+b"?list&limit="+str(limit).encode())
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.json(), {"next": keys[limit], "keys": keys[:limit]})
+    start = quote_plus(r.json()["next"]).encode()
+    # should return last page
+    r = requests.get(prefix+b"?list&limit="+str(limit).encode()+b"&start="+start)
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.json(), {"next": "", "keys": keys[limit:]})
 
   def test_noemptykey(self):
     key = self.get_fresh_key()
