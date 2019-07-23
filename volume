@@ -12,7 +12,7 @@ done
 CONF=$(mktemp)
 echo "
 daemon off; # docker
-worker_rlimit_nofile 100000;
+#worker_rlimit_nofile 100000;
 worker_processes auto;
 pcre_jit on;
 
@@ -20,7 +20,7 @@ error_log /dev/stderr;
 pid $VOLUME/nginx.pid;
 
 events {
-  use epoll;
+  #use epoll;
   multi_accept on;
   accept_mutex off;
   worker_connections 4096;

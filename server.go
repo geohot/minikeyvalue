@@ -14,7 +14,8 @@ import (
 
 // *** Params ***
 
-var fallback string;
+var fallback string = "";
+var replicas int = 3;
 
 // *** Master Server ***
 
@@ -61,7 +62,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
       }
       limit = nlimit
     }
-  
+
     slice := util.BytesPrefix(key)
     if start != "" {
       slice.Start = []byte(start)
@@ -125,8 +126,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     var volume string
     if err == leveldb.ErrNotFound {
       if fallback == "" {
-        // manually setting content length is required for HEAD (but shouldn't need to be in 404 case)
-        // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
         return
@@ -136,15 +135,13 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
     } else {
       volume = string(data)
-      kvolume := key2volume(key, a.volumes)
+      kvolume := key2volume(key, a.volumes, 0)
       if volume != kvolume {
         fmt.Println("on wrong volume, needs rebalance")
       }
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
-    // manually setting content length is required for HEAD (but shouldn't need to be in 302 case)
-    // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
     w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
   case "PUT":
@@ -163,7 +160,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    // we don't, compute the remote URL
+    // we don't have the key, compute the remote URL
     kvolume := key2volume(key, a.volumes)
     remote := fmt.Sprintf("http://%s%s", kvolume, key2path(key))
 

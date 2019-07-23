@@ -6,6 +6,8 @@ Fed up with the complexity of distributed filesystems?
 
 minikeyvalue is a ~200 line (not including tests!) distributed key value store. Optimized for values between 1MB and 1GB. Inspired by SeaweedFS, but simple. Should scale to billions of files and petabytes of data.
 
+Now with support for 3x replication. Just like the cloud!
+
 Even if this code is crap, the on disk format is super simple! We rely on a filesystem for blob storage and a LevelDB for indexing. The index can be reconstructed with rebuild. Volumes can be added or removed with rebalance.
 
 ### API
