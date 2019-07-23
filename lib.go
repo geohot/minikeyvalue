@@ -24,7 +24,10 @@ func key2path(key []byte, subvolumes int, subvolume int) string {
     return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
   } else {
     // we are using subvolumes
-    subvoln := (int(mkey[2]) + subvolume) % subvolumes
+    // note: if it was just a function of the key, the files would always be grouped
+    // by making it depend on the replica number, they won't be
+    // TODO: is the multiply needed?, it's Knuth's magic hash number
+    subvoln := ((uint32(mkey[2]) + uint32(subvolume)) * 2654435769) % uint32(subvolumes)
     return fmt.Sprintf("/%02x/%02x/%02x/%s", subvoln, mkey[0], mkey[1], b64key)
   }
 }
