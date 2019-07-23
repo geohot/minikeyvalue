@@ -9,6 +9,7 @@ import (
   "io"
   "io/ioutil"
   "net/http"
+  "sort"
 )
 
 // *** Hash Functions ***
@@ -22,23 +23,29 @@ func key2path(key []byte) string {
   return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
 }
 
-func key2volume(key []byte, volumes []string) string {
+func key2volume(key []byte, volumes []string, count int) []string {
   // this is an intelligent way to pick the volume server for a file
   // stable in the volume server name (not position!)
   // and if more are added the correct portion will move (yay md5!)
-  var best_score []byte = nil
-  var ret string = ""
+  type svolume struct {
+    score []byte
+    volume string
+  }
+  var svolumes []svolume
   for _, v := range volumes {
     hash := md5.New()
     hash.Write(key)
     hash.Write([]byte(v))
     score := hash.Sum(nil)
-    if best_score == nil || bytes.Compare(best_score, score) == -1 {
-      best_score = score
-      ret = v
-    }
+    svolumes = append(svolumes, svolume{score, v})
   }
-  //fmt.Println(string(key), ret, best_score)
+  sort.SliceStable(svolumes, func(i int, j int) bool { return bytes.Compare(svolumes[i].score, svolumes[j].score) == -1 })
+  // go should have a map function
+  var ret []string
+  for i := 0; i < count; i++ {
+    ret = append(ret, svolumes[i].volume)
+  }
+  //fmt.Println(string(key), ret[0])
   return ret
 }
 

@@ -6,6 +6,8 @@ import (
   "strings"
   "strconv"
   "fmt"
+  "math/rand"
+  "time"
   "net/http"
   "encoding/json"
   "github.com/syndtr/goleveldb/leveldb"
@@ -15,7 +17,7 @@ import (
 // *** Params ***
 
 var fallback string = "";
-var replicas int = 3;
+var replicas int = 1;
 
 // *** Master Server ***
 
@@ -134,11 +136,19 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         volume = fallback
       }
     } else {
-      volume = string(data)
-      kvolume := key2volume(key, a.volumes, 0)
-      if volume != kvolume {
-        fmt.Println("on wrong volume, needs rebalance")
+      volumes := strings.Split(string(data), ",")
+      if len(volumes) != replicas {
+        fmt.Println("on wrong number of volumes, needs rebalance")
+      } else {
+        kvolumes := key2volume(key, a.volumes, replicas)
+        for i := 0; i < replicas; i++ {
+          if volumes[i] != kvolumes[i] {
+            fmt.Println("on wrong volumes, needs rebalance")
+          }
+        }
       }
+      // fetch from a random valid volume
+      volume = volumes[rand.Intn(len(volumes))]
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
@@ -161,7 +171,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // we don't have the key, compute the remote URL
-    kvolume := key2volume(key, a.volumes)
+    kvolume := key2volume(key, a.volumes, replicas)[0]
     remote := fmt.Sprintf("http://%s%s", kvolume, key2path(key))
 
     if remote_put(remote, r.ContentLength, r.Body) != nil {
@@ -205,9 +215,16 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+  rand.Seed(time.Now().Unix())
+
   fmt.Printf("database: %s\n", os.Args[1])
   fmt.Printf("server port: %s\n", os.Args[2])
   fmt.Printf("volume servers: %s\n", os.Args[3])
+  var volumes = strings.Split(os.Args[3], ",")
+
+  if len(volumes) < replicas {
+    panic("Need at least as many volumes as replicas")
+  }
 
   if len(os.Args) > 4 {
     fallback = os.Args[4]
@@ -224,6 +241,6 @@ func main() {
 
   http.ListenAndServe(":"+os.Args[2], &App{db: db,
     lock: make(map[string]struct{}),
-    volumes: strings.Split(os.Args[3], ",")})
+    volumes: volumes})
 }
 
