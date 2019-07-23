@@ -52,8 +52,7 @@ func key2volume(key []byte, volumes []string, count int) []string {
   // go should have a map function
   // this adds the subvolumes
   var ret []string
-  for i := 0; i < count; i++ {
-    sv := sortvols[i]
+  for _, sv := range sortvols {
     var volume string
     if subvolumes == 1 {
       // if it's one, don't use the path structure for it
