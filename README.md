@@ -56,6 +56,12 @@ curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt
 curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 ```
 
+### Parameters (in lib.go)
+
+- fallback: A (volume) server to fallback to if the key is not found
+- replicas: The amount of times to replicate the file
+- subvolumes: The amount of drives to use in a single machine
+
 ### Rebalancing (to change the amount of volume servers)
 
 ```

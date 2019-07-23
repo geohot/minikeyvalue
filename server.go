@@ -16,12 +16,6 @@ import (
   "github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// *** Params ***
-
-var fallback string = ""
-var replicas int = 1
-var subvolumes int = 3
-
 // *** Master Server ***
 
 type App struct {

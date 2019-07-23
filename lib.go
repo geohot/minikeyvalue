@@ -12,6 +12,12 @@ import (
   "sort"
 )
 
+// *** Params ***
+
+var fallback string = ""
+var replicas int = 1
+var subvolumes int = 3
+
 // *** Hash Functions ***
 
 func key2path(key []byte, subvolumes int, volume string) string {
