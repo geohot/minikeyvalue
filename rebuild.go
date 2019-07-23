@@ -72,18 +72,17 @@ func main() {
     }()
   }
 
-  for sv := 0; sv < int(subvolumes); sv++ {
-    for i := 0; i < 256; i++ {
-      for j := 0; j < 256; j++ {
+  for i := 0; i < 256; i++ {
+    for j := 0; j < 256; j++ {
+      for sv := 0; sv < int(subvolumes); sv++ {
         for _, vol := range volumes {
           wg.Add(1)
-          var url string
-          if subvolumes == 1 {
-            url = fmt.Sprintf("http://%s/%02x/%02x/", vol, i, j)
-          } else {
-            url = fmt.Sprintf("http://%s/sv%02x/%02x/%02x/", vol, sv, i, j)
+          tvol := vol
+          if subvolumes != 1 {
+            tvol = fmt.Sprintf("%s/sv%02x", vol, sv)
           }
-          reqs <- RebuildRequest{vol, url}
+          url := fmt.Sprintf("http://%s/%02x/%02x/", tvol, i, j)
+          reqs <- RebuildRequest{tvol, url}
         }
       }
     }
