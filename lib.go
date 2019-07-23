@@ -16,29 +16,17 @@ import (
 
 var fallback string = ""
 var replicas int = 1
-var subvolumes int = 3
+var subvolumes uint = 3
 
 // *** Hash Functions ***
 
-func key2path(key []byte, subvolumes int, volume string) string {
+func key2path(key []byte) string {
   mkey := md5.Sum(key)
   b64key := base64.StdEncoding.EncodeToString(key)
 
-  if subvolumes == 1 {
-    // 2 byte layers deep, meaning a fanout of 256
-    // optimized for 2^24 = 16M files per volume server
-    return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
-  } else {
-    // we are using subvolumes
-    // same hash function used to determine volume placement
-    // with a different salt
-    hash := md5.New()
-    hash.Write([]byte("subvolume"))
-    hash.Write(key)
-    hash.Write([]byte(volume))
-    score := hash.Sum(nil)
-    return fmt.Sprintf("/sv%02x/%02x/%02x/%s", int(score[0]) % subvolumes, mkey[0], mkey[1], b64key)
-  }
+  // 2 byte layers deep, meaning a fanout of 256
+  // optimized for 2^24 = 16M files per volume server
+  return fmt.Sprintf("/%02x/%02x/%s", mkey[0], mkey[1], b64key)
 }
 
 func key2volume(key []byte, volumes []string, count int) []string {
@@ -59,9 +47,18 @@ func key2volume(key []byte, volumes []string, count int) []string {
   }
   sort.SliceStable(svolumes, func(i int, j int) bool { return bytes.Compare(svolumes[i].score, svolumes[j].score) == -1 })
   // go should have a map function
+  // this adds the subvolumes
   var ret []string
   for i := 0; i < count; i++ {
-    ret = append(ret, svolumes[i].volume)
+    var volume string
+    if subvolumes == 1 {
+      // if it's one, don't use the path structure for it
+      volume = svolumes[i].volume
+    } else {
+      // use the least significant compare byte for the subvolume
+      volume = fmt.Sprintf("%s/sv%02X", svolumes[i].volume, uint(svolumes[i].score[15]) % subvolumes)
+    }
+    ret = append(ret, volume)
   }
   //fmt.Println(string(key), ret[0])
   return ret

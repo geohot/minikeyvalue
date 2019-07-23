@@ -122,15 +122,15 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   switch r.Method {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
-    var remote string
+    var volume string
     if err == leveldb.ErrNotFound {
       if fallback == "" {
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
         return
       } else {
-        // fall through to fallback, no subvolumes on fallback server
-        remote = fmt.Sprintf("http://%s%s", fallback, key2path(key, 1, ""))
+        // fall through to fallback
+        volume = fallback
       }
     } else {
       volumes := strings.Split(string(data), ",")
@@ -145,9 +145,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         }
       }
       // fetch from a random valid volume
-      volume := volumes[rand.Intn(len(volumes))]
-      remote = fmt.Sprintf("http://%s%s", volume, key2path(key, subvolumes, volume))
+      volume = volumes[rand.Intn(len(volumes))]
     }
+    remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
     w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
@@ -179,7 +179,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         // if we have already read the contents into the TeeReader
         body = bytes.NewReader(buf.Bytes())
       }
-      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key, subvolumes, kvolumes[i]))
+      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
       if remote_put(remote, bodylen, body) != nil {
         // we assume the remote wrote nothing if it failed
         // TODO: rollback a partial replica write
@@ -211,7 +211,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // then remotely
     for _, volume := range strings.Split(string(data), ",") {
-      remote := fmt.Sprintf("http://%s%s", volume, key2path(key, subvolumes, volume))
+      remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
       if remote_delete(remote) != nil {
         // if this fails, it's possible to get an orphan file
         // but i'm not really sure what else to do?
