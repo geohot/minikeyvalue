@@ -7,5 +7,6 @@ before_install:
   - docker build -t minikeyvalue -f Dockerfile .
 
 script:
+  - docker run --rm --hostname localhost minikeyvalue bash -c "go test -v lib_test.go lib.go"
   - docker run --rm --hostname localhost minikeyvalue bash -c "(./bringup.sh &) && ./test.py && go run thrasher.go lib.go && ./rtest.sh"
 
