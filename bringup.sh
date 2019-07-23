@@ -1,5 +1,5 @@
 #!/bin/bash
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+#trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 PORT=3001 ./volume /tmp/volume1/ 2 &
 PORT=3002 ./volume /tmp/volume2/ 2 &
