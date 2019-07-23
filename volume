@@ -40,7 +40,6 @@ http {
 
   default_type application/octet-stream;
 
-  access_log /dev/stdout; # docker
   error_log /dev/stderr error; # docker
 
   server {

@@ -4,6 +4,7 @@ import (
   "os"
   "sync"
   "strings"
+  "strconv"
   "fmt"
   "net/http"
   "encoding/json"
@@ -40,20 +41,47 @@ func (a *App) LockKey(key []byte) bool {
   return true
 }
 
+type ListResponse struct {
+  Next string `json:"next"`
+  Keys []string `json:"keys"`
+}
+
 func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
-  switch r.URL.RawQuery {
+  // operation is first query parameter (e.g. ?list&limit=10)
+  switch strings.Split(r.URL.RawQuery, "&")[0] {
   case "list":
-    iter := a.db.NewIterator(util.BytesPrefix(key), nil)
+    start := r.URL.Query().Get("start")
+    limit := 0
+    qlimit := r.URL.Query().Get("limit")
+    if qlimit != "" {
+      nlimit, err := strconv.Atoi(qlimit)
+      if err != nil {
+        w.WriteHeader(400)
+        return
+      }
+      limit = nlimit
+    }
+  
+    slice := util.BytesPrefix(key)
+    if start != "" {
+      slice.Start = []byte(start)
+    }
+    iter := a.db.NewIterator(slice, nil)
     defer iter.Release()
     keys := make([]string, 0)
+    next := ""
     for iter.Next() {
-      keys = append(keys, string(iter.Key()))
-      if len(keys) > 1000000 {   // too large
+      if len(keys) > 1000000 { // too large (need to specify limit)
         w.WriteHeader(413)
         return
       }
+      if limit > 0 && len(keys) == limit { // limit results returned
+        next = string(iter.Key())
+        break
+      }
+      keys = append(keys, string(iter.Key()))
     }
-    str, err := json.Marshal(keys)
+    str, err := json.Marshal(ListResponse{Next: next, Keys: keys})
     if err != nil {
       w.WriteHeader(500)
       return
