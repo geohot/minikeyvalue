@@ -16,7 +16,7 @@ import (
 
 var fallback string = ""
 var replicas int = 3
-var subvolumes uint = 2
+var subvolumes uint = 10
 
 // *** Hash Functions ***
 
