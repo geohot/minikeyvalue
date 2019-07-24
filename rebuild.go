@@ -24,7 +24,7 @@ type RebuildRequest struct {
 
 var dblock sync.Mutex
 
-func rebuild(db *leveldb.DB, req RebuildRequest) bool {
+func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
   dat, err := remote_get(req.url)
   if err != nil {
     fmt.Println("ugh", err)
@@ -38,18 +38,45 @@ func rebuild(db *leveldb.DB, req RebuildRequest) bool {
       fmt.Println("ugh", err)
       return false
     }
+    pvolumes := key2volume(key, volumes, replicas)
+
     dblock.Lock()
     data, err := db.Get(key, nil)
-    value := req.vol
+    values := make([]string, 0)
     if err != leveldb.ErrNotFound {
-      value = value + "," + string(data)
+      values = strings.Split(string(data), ",")
     }
-    if err := db.Put(key, []byte(value), nil); err != nil {
+    values = append(values, req.vol)
+
+    // sort by order in pvolumes (sorry it's n^2 but n is small)
+    pvalues := make([]string, 0)
+    for _, v := range pvolumes {
+      for _, v2 := range values {
+        if v == v2 {
+          pvalues = append(pvalues, v)
+        }
+      }
+    }
+    // insert the ones that aren't there at the end
+    for _, v2 := range values {
+      insert := true
+      for _, v := range pvolumes {
+        if v == v2 {
+          insert = false
+          break
+        }
+      }
+      if insert {
+        pvalues = append(pvalues, v2)
+      }
+    }
+
+    if err := db.Put(key, []byte(strings.Join(pvalues, ",")), nil); err != nil {
       fmt.Println("ugh", err)
       return false
     }
     dblock.Unlock()
-    fmt.Println(string(key), value)
+    fmt.Println(string(key), pvalues)
   }
   return true
 }
@@ -78,7 +105,7 @@ func main() {
   for i := 0; i < 4; i++ {
     go func() {
       for req := range reqs {
-        rebuild(db, req)
+        rebuild(db, volumes, req)
         wg.Done()
       }
     }()
