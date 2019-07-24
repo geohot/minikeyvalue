@@ -56,6 +56,7 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
   }
 
   // delete from the volumes that now aren't kvolumes
+  delete_error := false
   for _, v2 := range req.volumes {
     needs_delete := true
     for _, v := range req.kvolumes {
@@ -68,9 +69,12 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
       remote_del := fmt.Sprintf("http://%s%s", v2, key2path(req.key))
       if err := remote_delete(remote_del); err != nil {
         fmt.Println("delete error", err, remote_del)
-        return false
+        delete_error = true
       }
     }
+  }
+  if delete_error {
+    return false
   }
   return true
 }

@@ -204,14 +204,19 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     a.db.Delete(key, nil)
 
     // then remotely
+    delete_error := false
     for _, volume := range strings.Split(string(data), ",") {
       remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
       if remote_delete(remote) != nil {
         // if this fails, it's possible to get an orphan file
         // but i'm not really sure what else to do?
-        w.WriteHeader(500)
-        return
+        delete_error = true
       }
+    }
+
+    if delete_error {
+      w.WriteHeader(500)
+      return
     }
 
     // 204, all good
