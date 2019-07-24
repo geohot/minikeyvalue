@@ -63,8 +63,11 @@ func key2volume(key []byte, volumes []string, count int) []string {
       // if it's one, don't use the path structure for it
       volume = sv.volume
     } else {
-      // use the least significant compare byte for the subvolume
-      volume = fmt.Sprintf("%s/sv%02X", sv.volume, uint(sv.score[15]) % subvolumes)
+      // use the least significant compare dword for the subvolume
+      // using only a byte would cause potential imbalance
+      svhash := uint(sv.score[12]) << 24 + uint(sv.score[13]) << 16 +
+                uint(sv.score[14]) << 8 + uint(sv.score[15])
+      volume = fmt.Sprintf("%s/sv%02X", sv.volume, svhash % subvolumes)
     }
     ret = append(ret, volume)
   }
