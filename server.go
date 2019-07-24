@@ -134,15 +134,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
     } else {
       volumes := strings.Split(string(data), ",")
-      if len(volumes) != replicas {
-        fmt.Println("on wrong number of volumes, needs rebalance", replicas, volumes)
-      } else {
-        kvolumes := key2volume(key, a.volumes, replicas)
-        for i := 0; i < replicas; i++ {
-          if volumes[i] != kvolumes[i] {
-            fmt.Println("on wrong volumes, needs rebalance")
-          }
-        }
+      kvolumes := key2volume(key, a.volumes, replicas)
+      if needs_rebalance(volumes, kvolumes) {
+        fmt.Println("on wrong volumes, needs rebalance")
       }
       // fetch from a random valid volume
       volume = volumes[rand.Intn(len(volumes))]

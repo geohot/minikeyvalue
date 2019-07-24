@@ -72,6 +72,18 @@ func key2volume(key []byte, volumes []string, count int) []string {
   return ret
 }
 
+func needs_rebalance(volumes []string, kvolumes []string) bool {
+  if len(volumes) != len(kvolumes) {
+    return true
+  }
+  for i := 0; i < len(volumes); i++ {
+    if volumes[i] != kvolumes[i] {
+      return true
+    }
+  }
+  return false
+}
+
 
 // *** Remote Access Functions ***
 

@@ -12,11 +12,11 @@ go run rebuild.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 
 # do a rebalance, then put it back
-#go run rebalance.go lib.go localhost:3001,localhost:3002,localhost:3003 $ALTDB
-#go run rebalance.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB
-#go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
+go run rebalance.go lib.go localhost:3001,localhost:3002,localhost:3003 $ALTDB
+go run rebalance.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB
+go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 
 # rebuild and compare the database
-#go run rebuild.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB2
-#go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB2
+go run rebuild.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB2
+go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB2
 
