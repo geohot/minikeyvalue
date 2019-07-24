@@ -9,6 +9,7 @@ import (
   "github.com/syndtr/goleveldb/leveldb"
   "strings"
   "encoding/base64"
+  "encoding/hex"
 )
 
 type File struct {
@@ -24,14 +25,20 @@ type RebuildRequest struct {
 
 var dblock sync.Mutex
 
-func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
-  dat, err := remote_get(req.url)
+func get_files(url string) []File {
+  //fmt.Println(url)
+  var files []File
+  dat, err := remote_get(url)
   if err != nil {
     fmt.Println("ugh", err)
-    return false
+    return files
   }
-  var files []File
   json.Unmarshal([]byte(dat), &files)
+  return files
+}
+
+func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
+  files := get_files(req.url)
   for _, f := range files {
     key, err := base64.StdEncoding.DecodeString(f.Name)
     if err != nil {
@@ -81,6 +88,20 @@ func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
   return true
 }
 
+func valid(a File) bool {
+  if len(a.Name) != 2 || a.Type != "directory" {
+    return false
+  }
+  decoded, err := hex.DecodeString(a.Name)
+  if err != nil {
+    return false
+  }
+  if len(decoded) != 1 {
+    return false
+  }
+  return true
+}
+
 func main() {
   http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
@@ -102,7 +123,7 @@ func main() {
   var wg sync.WaitGroup
   reqs := make(chan RebuildRequest, 20000)
 
-  for i := 0; i < 4; i++ {
+  for i := 0; i < 128; i++ {
     go func() {
       for req := range reqs {
         rebuild(db, volumes, req)
@@ -111,23 +132,34 @@ func main() {
     }()
   }
 
-  for i := 0; i < 256; i++ {
-    for j := 0; j < 256; j++ {
-      for sv := 0; sv < int(subvolumes); sv++ {
-        for _, vol := range volumes {
-          wg.Add(1)
-          tvol := vol
-          if subvolumes != 1 {
-            tvol = fmt.Sprintf("%s/sv%02x", vol, sv)
+  parse_volume := func(tvol string) {
+    for _, i := range get_files(fmt.Sprintf("http://%s/", tvol)) {
+      if valid(i) {
+        for _, j := range get_files(fmt.Sprintf("http://%s/%s/", tvol, i.Name)) {
+          if valid(j) {
+            wg.Add(1)
+            url := fmt.Sprintf("http://%s/%s/%s/", tvol, i.Name, j.Name)
+            reqs <- RebuildRequest{tvol, url}
           }
-          url := fmt.Sprintf("http://%s/%02x/%02x/", tvol, i, j)
-          reqs <- RebuildRequest{tvol, url}
         }
       }
     }
   }
-  close(reqs)
 
+  for _, vol := range volumes {
+    has_subvolumes := false
+    for _, f := range get_files(fmt.Sprintf("http://%s/", vol)) {
+      if len(f.Name) == 4 && strings.HasPrefix(f.Name, "sv") && f.Type == "directory" {
+        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name))
+        has_subvolumes = true
+      }
+    }
+    if !has_subvolumes {
+      parse_volume(vol)
+    }
+  }
+
+  close(reqs)
   wg.Wait()
 }
 

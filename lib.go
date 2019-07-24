@@ -128,10 +128,10 @@ func remote_get(remote string) (string, error) {
   if err != nil {
     return "", err
   }
+  defer resp.Body.Close()
   if resp.StatusCode != 200 {
     return "", errors.New(fmt.Sprintf("remote_get: wrong status code %d", resp.StatusCode))
   }
-  defer resp.Body.Close()
   body, err := ioutil.ReadAll(resp.Body)
   if err != nil {
     return "", err

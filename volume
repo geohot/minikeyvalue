@@ -1,6 +1,5 @@
 #!/bin/bash -e
 export VOLUME=${1:-/tmp/volume1/}
-export SUBVOLUMES=${2:-1}
 export TYPE=volume
 export PORT=${PORT:-3001}
 
