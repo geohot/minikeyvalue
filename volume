@@ -5,6 +5,7 @@ export TYPE=volume
 export PORT=${PORT:-3001}
 
 mkdir -p $VOLUME
+chmod 777 $VOLUME
 
 CONF=$(mktemp)
 echo "
