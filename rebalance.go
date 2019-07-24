@@ -11,16 +11,16 @@ import (
 
 type RebalanceRequest struct {
   key []byte
-  volume string
-  kvolume string
+  volumes []string
+  kvolumes []string
 }
 
 func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
-  remote_from := fmt.Sprintf("http://%s%s", req.volume, key2path(req.key))
-  remote_to := fmt.Sprintf("http://%s%s", req.kvolume, key2path(req.key))
-
   // debug
-  fmt.Println("rebalancing", string(req.key), "from", req.volume, "to", req.kvolume)
+  fmt.Println("rebalancing", string(req.key), "from", req.volumes, "to", req.kvolumes)
+
+  // always read from the first one
+  remote_from := fmt.Sprintf("http://%s%s", req.volumes[0], key2path(req.key))
 
   // read
   ss, err := remote_get(remote_from)
@@ -29,22 +29,48 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
     return false
   }
 
-  // write
-  if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
-    fmt.Println("put error", err, remote_to)
-    return false
+  // write to the kvolumes
+  for _, v := range req.kvolumes {
+    needs_write := true
+    // see if it's already there
+    for _, v2 := range req.volumes {
+      if v == v2 {
+        needs_write = false
+        break
+      }
+    }
+    if needs_write {
+      remote_to := fmt.Sprintf("http://%s%s", v, key2path(req.key))
+      // write
+      if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
+        fmt.Println("put error", err, remote_to)
+        return false
+      }
+    }
   }
 
   // update db
-  if err := db.Put(req.key, []byte(req.kvolume), nil); err != nil {
+  if err := db.Put(req.key, []byte(strings.Join(req.kvolumes, ",")), nil); err != nil {
     fmt.Println("put db error", err)
     return false
   }
 
-  // delete
-  if err := remote_delete(remote_from); err != nil {
-    fmt.Println("delete error", err, remote_from)
-    return false
+  // delete from the volumes that now aren't kvolumes
+  for _, v2 := range req.volumes {
+    needs_delete := true
+    for _, v := range req.kvolumes {
+      if v == v2 {
+        needs_delete = false
+        break
+      }
+    }
+    if needs_delete {
+      remote_del := fmt.Sprintf("http://%s%s", v2, key2path(req.key))
+      if err := remote_delete(remote_del); err != nil {
+        fmt.Println("delete error", err, remote_del)
+        return false
+      }
+    }
   }
   return true
 }
@@ -79,14 +105,14 @@ func main() {
   for iter.Next() {
     key := make([]byte, len(iter.Key()))
     copy(key, iter.Key())
-    volume := string(iter.Value())
-    kvolume := key2volume(key, volumes)
-    if volume != kvolume {
+    rvolumes := strings.Split(string(iter.Value()), ",")
+    kvolumes := key2volume(key, volumes, replicas)
+    if needs_rebalance(rvolumes, kvolumes) {
       wg.Add(1)
       reqs <- RebalanceRequest{
         key: key,
-        volume: volume,
-        kvolume: kvolume}
+        volumes: rvolumes,
+        kvolumes: kvolumes}
     }
   }
   close(reqs)

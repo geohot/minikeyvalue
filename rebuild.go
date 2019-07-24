@@ -22,7 +22,9 @@ type RebuildRequest struct {
   url string
 }
 
-func rebuild(db *leveldb.DB, req RebuildRequest) bool {
+var dblock sync.Mutex
+
+func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
   dat, err := remote_get(req.url)
   if err != nil {
     fmt.Println("ugh", err)
@@ -36,11 +38,45 @@ func rebuild(db *leveldb.DB, req RebuildRequest) bool {
       fmt.Println("ugh", err)
       return false
     }
-    if err := db.Put(key, []byte(req.vol), nil); err != nil {
+    kvolumes := key2volume(key, volumes, replicas)
+
+    dblock.Lock()
+    data, err := db.Get(key, nil)
+    values := make([]string, 0)
+    if err != leveldb.ErrNotFound {
+      values = strings.Split(string(data), ",")
+    }
+    values = append(values, req.vol)
+
+    // sort by order in kvolumes (sorry it's n^2 but n is small)
+    pvalues := make([]string, 0)
+    for _, v := range kvolumes {
+      for _, v2 := range values {
+        if v == v2 {
+          pvalues = append(pvalues, v)
+        }
+      }
+    }
+    // insert the ones that aren't there at the end
+    for _, v2 := range values {
+      insert := true
+      for _, v := range kvolumes {
+        if v == v2 {
+          insert = false
+          break
+        }
+      }
+      if insert {
+        pvalues = append(pvalues, v2)
+      }
+    }
+
+    if err := db.Put(key, []byte(strings.Join(pvalues, ",")), nil); err != nil {
       fmt.Println("ugh", err)
       return false
     }
-    fmt.Println(string(key), req.vol)
+    dblock.Unlock()
+    fmt.Println(string(key), pvalues)
   }
   return true
 }
@@ -58,15 +94,18 @@ func main() {
   }
   defer db.Close()
 
-  // TODO: empty leveldb
+  iter := db.NewIterator(nil, nil)
+  for iter.Next() {
+    db.Delete(iter.Key(), nil)
+  }
 
   var wg sync.WaitGroup
   reqs := make(chan RebuildRequest, 20000)
 
-  for i := 0; i < 64; i++ {
+  for i := 0; i < 4; i++ {
     go func() {
       for req := range reqs {
-        rebuild(db, req)
+        rebuild(db, volumes, req)
         wg.Done()
       }
     }()
@@ -74,10 +113,16 @@ func main() {
 
   for i := 0; i < 256; i++ {
     for j := 0; j < 256; j++ {
-      for _, vol := range volumes {
-        wg.Add(1)
-        url := fmt.Sprintf("http://%s/%02x/%02x/", vol, i, j)
-        reqs <- RebuildRequest{vol, url}
+      for sv := 0; sv < int(subvolumes); sv++ {
+        for _, vol := range volumes {
+          wg.Add(1)
+          tvol := vol
+          if subvolumes != 1 {
+            tvol = fmt.Sprintf("%s/sv%02x", vol, sv)
+          }
+          url := fmt.Sprintf("http://%s/%02x/%02x/", tvol, i, j)
+          reqs <- RebuildRequest{tvol, url}
+        }
       }
     }
   }

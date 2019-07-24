@@ -187,7 +187,7 @@ class TestMiniKeyValue(unittest.TestCase):
 
 if __name__ == '__main__':
   # wait for servers
-  for port in [3000,3001,3002]:
+  for port in range(3000,3006):
     print("check port %d" % port)
     while 1:
       try:

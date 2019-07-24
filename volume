@@ -1,18 +1,37 @@
 #!/bin/bash -e
 export VOLUME=${1:-/tmp/volume1/}
+export SUBVOLUMES=${2:-1}
 export TYPE=volume
 export PORT=${PORT:-3001}
 
 # create 65536 directories for files
-for I in 0 1 2 3 4 5 6 7 8 9 a b c d e f
-do
-  mkdir -m 777 -p $VOLUME/${I}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}/{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}
-done
+create_directories() {
+  echo -n "creating directories for $1..."
+  for I in 0 1 2 3 4 5 6 7 8 9 a b c d e f
+  do
+    mkdir -m 777 -p $1/${I}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}/{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}
+  done
+  echo "done"
+}
+
+SENTINEL=$VOLUME/created_directories
+if [ ! -f "$SENTINEL" ]; then
+  if [ "$SUBVOLUMES" -eq "1" ]; then
+    create_directories $VOLUME
+  else
+    for VV in $(seq 0 $(($SUBVOLUMES - 1)))
+    do
+      create_directories $VOLUME/sv0${VV}
+    done
+  fi
+  touch $SENTINEL
+  echo "done creating directories"
+fi
 
 CONF=$(mktemp)
 echo "
 daemon off; # docker
-worker_rlimit_nofile 100000;
+#worker_rlimit_nofile 100000;
 worker_processes auto;
 pcre_jit on;
 
@@ -20,7 +39,7 @@ error_log /dev/stderr;
 pid $VOLUME/nginx.pid;
 
 events {
-  use epoll;
+  #use epoll;
   multi_accept on;
   accept_mutex off;
   worker_connections 4096;

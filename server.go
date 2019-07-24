@@ -2,19 +2,19 @@ package main
 
 import (
   "os"
+  "io"
   "sync"
+  "bytes"
   "strings"
   "strconv"
   "fmt"
+  "math/rand"
+  "time"
   "net/http"
   "encoding/json"
   "github.com/syndtr/goleveldb/leveldb"
   "github.com/syndtr/goleveldb/leveldb/util"
 )
-
-// *** Params ***
-
-var fallback string;
 
 // *** Master Server ***
 
@@ -61,7 +61,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
       }
       limit = nlimit
     }
-  
+
     slice := util.BytesPrefix(key)
     if start != "" {
       slice.Start = []byte(start)
@@ -125,8 +125,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     var volume string
     if err == leveldb.ErrNotFound {
       if fallback == "" {
-        // manually setting content length is required for HEAD (but shouldn't need to be in 404 case)
-        // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
         return
@@ -135,16 +133,16 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         volume = fallback
       }
     } else {
-      volume = string(data)
-      kvolume := key2volume(key, a.volumes)
-      if volume != kvolume {
-        fmt.Println("on wrong volume, needs rebalance")
+      volumes := strings.Split(string(data), ",")
+      kvolumes := key2volume(key, a.volumes, replicas)
+      if needs_rebalance(volumes, kvolumes) {
+        fmt.Println("on wrong volumes, needs rebalance")
       }
+      // fetch from a random valid volume
+      volume = volumes[rand.Intn(len(volumes))]
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
-    // manually setting content length is required for HEAD (but shouldn't need to be in 302 case)
-    // https://github.com/golang/go/blob/88548d0211ba64896fa76a5d1818e4422847a879/src/net/http/server.go#L1256
     w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
   case "PUT":
@@ -163,19 +161,31 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    // we don't, compute the remote URL
-    kvolume := key2volume(key, a.volumes)
-    remote := fmt.Sprintf("http://%s%s", kvolume, key2path(key))
+    // we don't have the key, compute the remote URL
+    kvolumes := key2volume(key, a.volumes, replicas)
 
-    if remote_put(remote, r.ContentLength, r.Body) != nil {
-      // we assume the remote wrote nothing if it failed
-      w.WriteHeader(500)
-      return
+    // write to each replica
+    var buf bytes.Buffer
+    body := io.TeeReader(r.Body, &buf)
+    bodylen := r.ContentLength
+    for i := 0; i < len(kvolumes); i++ {
+      if (i != 0) {
+        // if we have already read the contents into the TeeReader
+        body = bytes.NewReader(buf.Bytes())
+      }
+      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
+      if remote_put(remote, bodylen, body) != nil {
+        // we assume the remote wrote nothing if it failed
+        // TODO: rollback a partial replica write
+        fmt.Printf("replica %d write failed: %s\n", i, remote)
+        w.WriteHeader(500)
+        return
+      }
     }
 
     // push to leveldb
     // note that the key is locked, so nobody wrote to the leveldb
-    if err := a.db.Put(key, []byte(kvolume), nil); err != nil {
+    if err := a.db.Put(key, []byte(strings.Join(kvolumes, ",")), nil); err != nil {
       // should we delete?
       w.WriteHeader(500)
       return
@@ -194,12 +204,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     a.db.Delete(key, nil)
 
     // then remotely
-    remote := fmt.Sprintf("http://%s%s", string(data), key2path(key))
-    if remote_delete(remote) != nil {
-      // if this fails, it's possible to get an orphan file
-      // but i'm not really sure what else to do?
-      w.WriteHeader(500)
-      return
+    for _, volume := range strings.Split(string(data), ",") {
+      remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+      if remote_delete(remote) != nil {
+        // if this fails, it's possible to get an orphan file
+        // but i'm not really sure what else to do?
+        w.WriteHeader(500)
+        return
+      }
     }
 
     // 204, all good
@@ -208,9 +220,16 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+  rand.Seed(time.Now().Unix())
+
   fmt.Printf("database: %s\n", os.Args[1])
   fmt.Printf("server port: %s\n", os.Args[2])
   fmt.Printf("volume servers: %s\n", os.Args[3])
+  var volumes = strings.Split(os.Args[3], ",")
+
+  if len(volumes) < replicas {
+    panic("Need at least as many volumes as replicas")
+  }
 
   if len(os.Args) > 4 {
     fallback = os.Args[4]
@@ -220,13 +239,12 @@ func main() {
 
   db, err := leveldb.OpenFile(os.Args[1], nil)
   if err != nil {
-    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
-    return
+    panic(fmt.Sprintf("LevelDB open failed: %s", err))
   }
   defer db.Close()
 
   http.ListenAndServe(":"+os.Args[2], &App{db: db,
     lock: make(map[string]struct{}),
-    volumes: strings.Split(os.Args[3], ",")})
+    volumes: volumes})
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
   "testing"
+  "strings"
   //"fmt"
 )
 
@@ -29,8 +30,8 @@ func Test_key2volume(t *testing.T) {
     "blah": "curly",
   }
   for k,v := range tests {
-    ret := key2volume([]byte(k), volumes)
-    if ret != v {
+    ret := key2volume([]byte(k), volumes, 1)
+    if strings.Split(ret[0], "/")[0] != v {
       t.Fatal("key2volume function broke", k, ret, v)
     }
   }
