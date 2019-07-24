@@ -22,6 +22,8 @@ type RebuildRequest struct {
   url string
 }
 
+var dblock sync.Mutex
+
 func rebuild(db *leveldb.DB, req RebuildRequest) bool {
   dat, err := remote_get(req.url)
   if err != nil {
@@ -36,11 +38,18 @@ func rebuild(db *leveldb.DB, req RebuildRequest) bool {
       fmt.Println("ugh", err)
       return false
     }
-    if err := db.Put(key, []byte(req.vol), nil); err != nil {
+    dblock.Lock()
+    data, err := db.Get(key, nil)
+    value := req.vol
+    if err != leveldb.ErrNotFound {
+      value = value + "," + string(data)
+    }
+    if err := db.Put(key, []byte(value), nil); err != nil {
       fmt.Println("ugh", err)
       return false
     }
-    fmt.Println(string(key), req.vol)
+    dblock.Unlock()
+    fmt.Println(string(key), value)
   }
   return true
 }
@@ -58,7 +67,10 @@ func main() {
   }
   defer db.Close()
 
-  // TODO: empty leveldb
+  iter := db.NewIterator(nil, nil)
+  for iter.Next() {
+    db.Delete(iter.Key(), nil)
+  }
 
   var wg sync.WaitGroup
   reqs := make(chan RebuildRequest, 20000)

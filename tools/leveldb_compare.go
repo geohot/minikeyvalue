@@ -29,7 +29,7 @@ func main() {
     }
     if v1 != v2 {
       // we can continue with a value mismatch
-      fmt.Println(k1, v1, k2, v2)
+      fmt.Printf("%s: %s != %s\n", k1, v1, v2)
       bad = true
     }
   }

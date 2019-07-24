@@ -23,5 +23,5 @@ ENV PATH ${PATH}:/mkv
 COPY requirements.txt mkv/requirements.txt
 RUN pip3 install --no-cache-dir -r mkv/requirements.txt
 
-COPY *.go rtest.sh bringup.sh master volume test.py mkv/ tools/*
+COPY *.go rtest.sh bringup.sh master volume test.py tools mkv/
 WORKDIR /mkv
