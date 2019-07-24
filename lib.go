@@ -139,3 +139,16 @@ func remote_get(remote string) (string, error) {
   return string(body), nil
 }
 
+func remote_head(remote string) bool {
+  req, err := http.NewRequest("HEAD", remote, nil)
+  if err != nil {
+    return false
+  }
+  resp, err := http.DefaultClient.Do(req)
+  if err != nil {
+    return false
+  }
+  defer resp.Body.Close()
+  return resp.StatusCode == 200
+}
+
