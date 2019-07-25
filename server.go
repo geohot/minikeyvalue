@@ -1,45 +1,18 @@
 package main
 
 import (
-  "os"
   "io"
-  "sync"
   "bytes"
   "strings"
   "strconv"
   "fmt"
   "math/rand"
-  "time"
   "net/http"
   "encoding/json"
-  "github.com/syndtr/goleveldb/leveldb"
   "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // *** Master Server ***
-
-type App struct {
-  db *leveldb.DB
-  mlock sync.Mutex
-  lock map[string]struct{}
-  volumes []string
-}
-
-func (a *App) UnlockKey(key []byte) {
-  a.mlock.Lock()
-  delete(a.lock, string(key))
-  a.mlock.Unlock()
-}
-
-func (a *App) LockKey(key []byte) bool {
-  a.mlock.Lock()
-  defer a.mlock.Unlock()
-  if _, prs := a.lock[string(key)]; prs {
-    return false
-  }
-  a.lock[string(key)] = struct{}{}
-  return true
-}
 
 type ListResponse struct {
   Next string `json:"next"`
@@ -96,17 +69,6 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (a *App) GetRecord(key []byte) Record {
-  data, err := a.db.Get(key, nil)
-  rec := Record{[]string{}, true}
-  if err != leveldb.ErrNotFound { rec = toRecord(data) }
-  return rec
-}
-
-func (a *App) PutRecord(key []byte, rec Record) bool {
-  return a.db.Put(key, fromRecord(rec), nil) == nil
-}
-
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
@@ -135,16 +97,16 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     rec := a.GetRecord(key)
     var volume string
     if rec.deleted {
-      if fallback == "" {
+      if a.fallback == "" {
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
         return
       } else {
         // fall through to fallback
-        volume = fallback
+        volume = a.fallback
       }
     } else {
-      kvolumes := key2volume(key, a.volumes, replicas, subvolumes)
+      kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
       if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
@@ -171,7 +133,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // we don't have the key, compute the remote URL
-    kvolumes := key2volume(key, a.volumes, replicas, subvolumes)
+    kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 
     // push to leveldb initially as deleted
     if !a.PutRecord(key, Record{kvolumes, true}) {
@@ -220,7 +182,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    if !softdelete {
+    if !a.softdelete {
       // then remotely, if softdelete is disabled
       delete_error := false
       for _, volume := range rec.rvolumes {
@@ -243,34 +205,5 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // 204, all good
     w.WriteHeader(204)
   }
-}
-
-func main() {
-  rand.Seed(time.Now().Unix())
-
-  fmt.Printf("database: %s\n", os.Args[1])
-  fmt.Printf("server port: %s\n", os.Args[2])
-  fmt.Printf("volume servers: %s\n", os.Args[3])
-  var volumes = strings.Split(os.Args[3], ",")
-
-  if len(volumes) < replicas {
-    panic("Need at least as many volumes as replicas")
-  }
-
-  if len(os.Args) > 4 {
-    fallback = os.Args[4]
-  }
-
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
-
-  db, err := leveldb.OpenFile(os.Args[1], nil)
-  if err != nil {
-    panic(fmt.Sprintf("LevelDB open failed: %s", err))
-  }
-  defer db.Close()
-
-  http.ListenAndServe(":"+os.Args[2], &App{db: db,
-    lock: make(map[string]struct{}),
-    volumes: volumes})
 }
 

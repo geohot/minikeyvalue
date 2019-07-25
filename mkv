@@ -1,0 +1,4 @@
+#!/bin/bash -e
+go get github.com/syndtr/goleveldb/leveldb
+go run main.go lib.go server.go rebalance.go rebuild.go $@
+

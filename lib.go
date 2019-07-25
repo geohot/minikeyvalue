@@ -13,13 +13,6 @@ import (
   "strings"
 )
 
-// *** Params ***
-
-var fallback string = ""
-var replicas int = 3
-var subvolumes int = 10
-var softdelete bool = false
-
 // *** DB Type ***
 
 type Record struct {

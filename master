@@ -1,7 +1,0 @@
-#!/bin/bash -e
-export VOLUMES=${1:-localhost:3001}
-export DB=${2:-/tmp/cachedb/}
-
-go get github.com/syndtr/goleveldb/leveldb
-go run server.go lib.go $DB ${PORT:-3000} $VOLUMES $3
-
