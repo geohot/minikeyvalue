@@ -4,7 +4,6 @@ import (
   "fmt"
   "sync"
   "strings"
-  "github.com/syndtr/goleveldb/leveldb"
 )
 
 type RebalanceRequest struct {
@@ -13,7 +12,7 @@ type RebalanceRequest struct {
   kvolumes []string
 }
 
-func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
+func rebalance(a *App, req RebalanceRequest) bool {
   kp := key2path(req.key)
 
   // find the volumes that are real
@@ -67,7 +66,7 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
   }
 
   // update db
-  if err := db.Put(req.key, fromRecord(Record{req.kvolumes, NO}), nil); err != nil {
+  if !a.PutRecord(req.key, Record{req.kvolumes, NO}) {
     fmt.Println("put db error", err)
     return false
   }
@@ -105,7 +104,7 @@ func (a *App) Rebalance() {
   for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
-        rebalance(a.db, req)
+        rebalance(a, req)
         wg.Done()
       }
     }()

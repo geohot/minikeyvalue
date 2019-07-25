@@ -35,7 +35,7 @@ func get_files(url string) []File {
   return files
 }
 
-func rebuild(db *leveldb.DB, volumes []string, replicas int, subvolumes int, req RebuildRequest) bool {
+func rebuild(a *App, req RebuildRequest) bool {
   files := get_files(req.url)
   for _, f := range files {
     key, err := base64.StdEncoding.DecodeString(f.Name)
@@ -43,10 +43,10 @@ func rebuild(db *leveldb.DB, volumes []string, replicas int, subvolumes int, req
       fmt.Println("ugh", err)
       return false
     }
-    kvolumes := key2volume(key, volumes, replicas, subvolumes)
+    kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 
     dblock.Lock()
-    data, err := db.Get(key, nil)
+    data, err := a.db.Get(key, nil)
     var rec Record
     if err != leveldb.ErrNotFound {
       rec = toRecord(data)
@@ -78,7 +78,7 @@ func rebuild(db *leveldb.DB, volumes []string, replicas int, subvolumes int, req
       }
     }
 
-    if err := db.Put(key, fromRecord(Record{pvalues, NO}), nil); err != nil {
+    if !a.PutRecord(key, Record{pvalues, NO}) {
       fmt.Println("ugh", err)
       return false
     }
@@ -117,7 +117,7 @@ func (a *App) Rebuild() {
   for i := 0; i < 128; i++ {
     go func() {
       for req := range reqs {
-        rebuild(a.db, a.volumes, a.replicas, a.subvolumes, req)
+        rebuild(a, req)
         wg.Done()
       }
     }()
