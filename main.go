@@ -1,7 +1,7 @@
 package main
 
 import (
-  "os"
+  "flag"
   "sync"
   "math/rand"
   "time"
@@ -60,23 +60,38 @@ func main() {
   http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
   rand.Seed(time.Now().Unix())
 
-  fmt.Printf("database: %s\n", os.Args[1])
-  fmt.Printf("server port: %s\n", os.Args[2])
-  fmt.Printf("volume servers: %s\n", os.Args[3])
-  var volumes = strings.Split(os.Args[3], ",")
+  port := flag.Int("port", 3000, "Port for the server to listen on")
+  pdb := flag.String("database", "", "Path to leveldb")
+  fallback := flag.String("fallback", "", "Fallback server for 404")
+  replicas := flag.Int("replicas", 3, "Amount of replicas to make of the data")
+  subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes for sharding")
+  softdelete := flag.Bool("softdelete", false, "Make deletes only virtual")
+  pvolumes := flag.String("volumes", "", "Volumes to use for storage")
+  fmt.Println(*pvolumes)
+  volumes := strings.Split(*pvolumes, ",")
+  flag.Parse()
 
-  replicas := 3
+  command := flag.Arg(0)
 
-  if len(volumes) < replicas {
+  if command != "server" && command != "rebuild" && command != "rebalance" {
+    fmt.Println("minikeyvalue needs a command, either server, rebuild, or rebalance\n")
+    flag.PrintDefaults()
+    return
+  }
+
+  if *pdb == "" {
+    panic("Need a path to the database")
+  }
+
+  //fmt.Printf("database: %s\n", os.Args[1])
+  fmt.Printf("server port: %d\n", *port)
+  fmt.Printf("volume servers: %s\n", volumes)
+
+  if len(volumes) < *replicas {
     panic("Need at least as many volumes as replicas")
   }
 
-  fallback := ""
-  if len(os.Args) > 4 {
-    fallback = os.Args[4]
-  }
-
-  db, err := leveldb.OpenFile(os.Args[1], nil)
+  db, err := leveldb.OpenFile(*pdb, nil)
   if err != nil {
     panic(fmt.Sprintf("LevelDB open failed: %s", err))
   }
@@ -85,13 +100,15 @@ func main() {
   a := App{db: db,
     lock: make(map[string]struct{}),
     volumes: volumes,
-    fallback: fallback,
-    // TODO: make these command line arguments
-    replicas: replicas,
-    subvolumes: 10,
-    softdelete: false,
+    fallback: *fallback,
+    replicas: *replicas,
+    subvolumes: *subvolumes,
+    softdelete: *softdelete,
   }
 
-  http.ListenAndServe(":"+os.Args[2], &a)
+  if command == "server" {
+    http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
+  }
+
 }
 
