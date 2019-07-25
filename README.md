@@ -69,7 +69,7 @@ Usage: ./mkv <server, rebuild, rebalance>
   -db string
         Path to leveldb
   -fallback string
-        Fallback server for 404
+        Fallback server for missing keys
   -port int
         Port for the server to listen on (default 3000)
   -protect
@@ -77,9 +77,9 @@ Usage: ./mkv <server, rebuild, rebalance>
   -replicas int
         Amount of replicas to make of the data (default 3)
   -subvolumes int
-        Amount of subvolumes for sharding (default 10)
+        Amount of subvolumes, disks per machine (default 10)
   -volumes string
-        Volumes to use for storage
+        Volumes to use for storage, comma separated
 ```
 
 ### Rebalancing (to change the amount of volume servers)
