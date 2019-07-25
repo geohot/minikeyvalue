@@ -72,7 +72,7 @@ func main() {
   command := flag.Arg(0)
 
   if command != "server" && command != "rebuild" && command != "rebalance" {
-    fmt.Println("minikeyvalue needs a command, either server, rebuild, or rebalance\n")
+    fmt.Println("Usage: ./mkv <server, rebuild, rebalance>\n")
     flag.PrintDefaults()
     return
   }

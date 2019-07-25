@@ -62,11 +62,26 @@ curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt
 curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 ```
 
-### Parameters (in lib.go)
+### ./mkv Usage
 
-- fallback: A (volume) server to fallback to if the key is not found
-- replicas: The amount of times to replicate the file
-- subvolumes: The amount of drives to use in a single machine
+```
+Usage: ./mkv <server, rebuild, rebalance>
+
+  -db string
+        Path to leveldb
+  -fallback string
+        Fallback server for 404
+  -port int
+        Port for the server to listen on (default 3000)
+  -protect
+        Force UNLINK before DELETE
+  -replicas int
+        Amount of replicas to make of the data (default 3)
+  -subvolumes int
+        Amount of subvolumes for sharding (default 10)
+  -volumes string
+        Volumes to use for storage
+```
 
 ### Rebalancing (to change the amount of volume servers)
 
