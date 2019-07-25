@@ -23,7 +23,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   // operation is first query parameter (e.g. ?list&limit=10)
   operation := strings.Split(r.URL.RawQuery, "&")[0]
   switch operation {
-  case "list","deleted":
+  case "list","unlinked":
     start := r.URL.Query().Get("start")
     limit := 0
     qlimit := r.URL.Query().Get("limit")
@@ -47,7 +47,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
     for iter.Next() {
       rec := toRecord(iter.Value())
       if (rec.deleted != NO && operation == "list") ||
-         (rec.deleted != SOFT && operation == "deleted") {
+         (rec.deleted != SOFT && operation == "unlinked") {
         continue
       }
       if len(keys) > 1000000 { // too large (need to specify limit)
@@ -89,7 +89,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 
   // lock the key while a PUT or DELETE is in progress
-  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "DESTROY" {
+  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" {
     if !a.LockKey(key) {
       // Conflict, retry later
       w.WriteHeader(409)
@@ -174,12 +174,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // 201, all good
     w.WriteHeader(201)
-  case "DELETE", "DESTROY":
-    destroy := r.Method == "DESTROY"
+  case "DELETE", "UNLINK":
+    unlink := r.Method == "UNLINK"
 
     // delete the key, first locally
     rec := a.GetRecord(key)
-    if rec.deleted == HARD || (!destroy && rec.deleted == SOFT) {
+    if rec.deleted == HARD || (unlink && rec.deleted == SOFT) {
       w.WriteHeader(404)
       return
     }
@@ -190,8 +190,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    if destroy {
-      // then remotely, if softdelete is disabled
+    if !unlink {
+      // then remotely, if this is not an unlink
       delete_error := false
       for _, volume := range rec.rvolumes {
         remote := fmt.Sprintf("http://%s%s", volume, key2path(key))

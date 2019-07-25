@@ -18,8 +18,6 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
   - Blocks. 201 = written, anything else = probably not written.
 - DELETE /key
   - Blocks. 204 = soft deleted, anything else = probably not deleted.
-- DESTROY /key
-  - Blocks. 204 = actually deleted, anything else = probably not deleted.
 
 ### Start Master Server (default port 3000)
 
@@ -45,17 +43,17 @@ curl -v -L -X PUT -d bigswag localhost:3000/wehave
 # get key "wehave" (should be "bigswag")
 curl -v -L localhost:3000/wehave
 
-# delete key "wehave", this is a virtual delete
+# delete key "wehave"
 curl -v -L -X DELETE localhost:3000/wehave
 
-# destroy key "wehave", removes from volumes
-curl -v -L -X DESTROY localhost:3000/wehave
+# unlink key "wehave", this is a virtual delete
+curl -v -L -X UNLINK localhost:3000/wehave
 
 # list keys starting with "we"
 curl -v -L localhost:3000/we?list
 
-# list deleted keys ripe for DESTROY
-curl -v -L localhost:3000/?deleted
+# list unlinked keys ripe for DELETE
+curl -v -L localhost:3000/?unlinked
 
 # put file in key "file.txt"
 curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt

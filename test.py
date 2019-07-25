@@ -15,11 +15,6 @@ logging.basicConfig(format='%(name)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# HACK: make all deletes a destroy
-def destroy(x):
-  return requests.request("DESTROY", x)
-requests.delete = destroy
-
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
   
