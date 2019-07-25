@@ -69,7 +69,7 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
   }
 
   // update db
-  if err := db.Put(req.key, []byte(strings.Join(req.kvolumes, ",")), nil); err != nil {
+  if err := db.Put(req.key, fromRecord(Record{req.kvolumes, false}), nil); err != nil {
     fmt.Println("put db error", err)
     return false
   }
@@ -128,12 +128,12 @@ func main() {
   for iter.Next() {
     key := make([]byte, len(iter.Key()))
     copy(key, iter.Key())
-    rvolumes := strings.Split(string(iter.Value()), ",")
+    rec := toRecord(iter.Value())
     kvolumes := key2volume(key, volumes, replicas)
     wg.Add(1)
     reqs <- RebalanceRequest{
       key: key,
-      volumes: rvolumes,
+      volumes: rec.rvolumes,
       kvolumes: kvolumes}
   }
   close(reqs)

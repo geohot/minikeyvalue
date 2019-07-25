@@ -49,23 +49,25 @@ func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
 
     dblock.Lock()
     data, err := db.Get(key, nil)
-    values := make([]string, 0)
+    var rec Record
     if err != leveldb.ErrNotFound {
-      values = strings.Split(string(data), ",")
+      rec = toRecord(data)
+      rec.rvolumes = append(rec.rvolumes, req.vol)
+    } else {
+      rec = Record{[]string{req.vol}, false}
     }
-    values = append(values, req.vol)
 
     // sort by order in kvolumes (sorry it's n^2 but n is small)
     pvalues := make([]string, 0)
     for _, v := range kvolumes {
-      for _, v2 := range values {
+      for _, v2 := range rec.rvolumes {
         if v == v2 {
           pvalues = append(pvalues, v)
         }
       }
     }
     // insert the ones that aren't there at the end
-    for _, v2 := range values {
+    for _, v2 := range rec.rvolumes {
       insert := true
       for _, v := range kvolumes {
         if v == v2 {
@@ -78,7 +80,7 @@ func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
       }
     }
 
-    if err := db.Put(key, []byte(strings.Join(pvalues, ",")), nil); err != nil {
+    if err := db.Put(key, fromRecord(Record{pvalues, false}), nil); err != nil {
       fmt.Println("ugh", err)
       return false
     }
