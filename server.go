@@ -122,6 +122,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   switch r.Method {
   case "GET", "HEAD":
     data, err := a.db.Get(key, nil)
+    rec := toRecord(data)
     var volume string
     if err == leveldb.ErrNotFound {
       if fallback == "" {
@@ -133,13 +134,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         volume = fallback
       }
     } else {
-      volumes := strings.Split(string(data), ",")
       kvolumes := key2volume(key, a.volumes, replicas)
-      if needs_rebalance(volumes, kvolumes) {
+      if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
       // fetch from a random valid volume
-      volume = volumes[rand.Intn(len(volumes))]
+      volume = rec.rvolumes[rand.Intn(len(rec.rvolumes))]
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
@@ -185,7 +185,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb
     // note that the key is locked, so nobody wrote to the leveldb
-    if err := a.db.Put(key, []byte(strings.Join(kvolumes, ",")), nil); err != nil {
+    if err := a.db.Put(key, fromRecord(Record{kvolumes, false}), nil); err != nil {
       // should we delete?
       w.WriteHeader(500)
       return
@@ -196,6 +196,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   case "DELETE":
     // delete the key, first locally
     data, err := a.db.Get(key, nil)
+    rec := toRecord(data)
     if err == leveldb.ErrNotFound {
       w.WriteHeader(404)
       return
@@ -205,7 +206,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // then remotely
     delete_error := false
-    for _, volume := range strings.Split(string(data), ",") {
+    for _, volume := range rec.rvolumes {
       remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
       if remote_delete(remote) != nil {
         // if this fails, it's possible to get an orphan file

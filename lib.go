@@ -10,6 +10,7 @@ import (
   "io/ioutil"
   "net/http"
   "sort"
+  "strings"
 )
 
 // *** Params ***
@@ -17,6 +18,25 @@ import (
 var fallback string = ""
 var replicas int = 3
 var subvolumes uint = 10
+var softdelete bool = false
+
+// *** DB Type ***
+
+type Record struct {
+  rvolumes []string
+  deleted bool
+}
+
+func toRecord(data []byte) Record {
+  var rec Record
+  rec.rvolumes = strings.Split(string(data), ",")
+  rec.deleted = false
+  return rec
+}
+
+func fromRecord(rec Record) []byte {
+  return []byte(strings.Join(rec.rvolumes, ","))
+}
 
 // *** Hash Functions ***
 
