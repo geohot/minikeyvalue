@@ -184,6 +184,11 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
+    if a.protect && rec.deleted == NO {
+      w.WriteHeader(403)
+      return
+    }
+
     // mark as deleted
     if !a.PutRecord(key, Record{rec.rvolumes, SOFT}) {
       w.WriteHeader(500)
