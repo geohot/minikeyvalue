@@ -96,6 +96,17 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
+func (a *App) GetRecord(key []byte) Record {
+  data, err := a.db.Get(key, nil)
+  rec := Record{[]string{}, true}
+  if err != leveldb.ErrNotFound { rec = toRecord(data) }
+  return rec
+}
+
+func (a *App) PutRecord(key []byte, rec Record) bool {
+  return a.db.Put(key, fromRecord(rec), nil) == nil
+}
+
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
@@ -121,9 +132,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
   switch r.Method {
   case "GET", "HEAD":
-    data, err := a.db.Get(key, nil)
-    rec := Record{[]string{}, true}
-    if err != leveldb.ErrNotFound { rec = toRecord(data) }
+    rec := a.GetRecord(key)
     var volume string
     if rec.deleted {
       if fallback == "" {
@@ -153,11 +162,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    data, err := a.db.Get(key, nil)
-    rec := Record{[]string{}, true}
-    if err != leveldb.ErrNotFound { rec = toRecord(data) }
-
     // check if we already have the key, and it's not deleted
+    rec := a.GetRecord(key)
     if !rec.deleted {
       // Forbidden to overwrite with PUT
       w.WriteHeader(403)
@@ -168,7 +174,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     kvolumes := key2volume(key, a.volumes, replicas)
 
     // push to leveldb initially as deleted
-    if err := a.db.Put(key, fromRecord(Record{kvolumes, true}), nil); err != nil {
+    if !a.PutRecord(key, Record{kvolumes, true}) {
       // should we delete?
       w.WriteHeader(500)
       return
@@ -194,7 +200,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
-    if err := a.db.Put(key, fromRecord(Record{kvolumes, false}), nil); err != nil {
+    if !a.PutRecord(key, Record{kvolumes, false}) {
       // should we delete?
       w.WriteHeader(500)
       return
@@ -204,17 +210,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(201)
   case "DELETE":
     // delete the key, first locally
-    data, err := a.db.Get(key, nil)
-    rec := Record{[]string{}, true}
-    if err != leveldb.ErrNotFound { rec = toRecord(data) }
-
+    rec := a.GetRecord(key)
     if rec.deleted {
       w.WriteHeader(404)
       return
     }
 
     // mark as deleted
-    if err := a.db.Put(key, fromRecord(Record{rec.rvolumes, true}), nil); err != nil {
+    if !a.PutRecord(key, Record{rec.rvolumes, true}) {
       // can this fail?
       w.WriteHeader(500)
       return
