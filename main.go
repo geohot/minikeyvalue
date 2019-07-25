@@ -56,7 +56,6 @@ func (a *App) PutRecord(key []byte, rec Record) bool {
 // *** Entry Point ***
 
 func main() {
-  // setup
   http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
   rand.Seed(time.Now().Unix())
 
@@ -82,10 +81,6 @@ func main() {
     panic("Need a path to the database")
   }
 
-  //fmt.Printf("database: %s\n", os.Args[1])
-  fmt.Printf("server port: %d\n", *port)
-  fmt.Printf("volume servers: %s\n", volumes)
-
   if len(volumes) < *replicas {
     panic("Need at least as many volumes as replicas")
   }
@@ -96,6 +91,7 @@ func main() {
   }
   defer db.Close()
 
+  fmt.Printf("volume servers: %s\n", volumes)
   a := App{db: db,
     lock: make(map[string]struct{}),
     volumes: volumes,
@@ -107,7 +103,10 @@ func main() {
 
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
+  } else if command == "rebuild" {
+    a.Rebuild()
+  } else if command == "rebalance" {
+    a.Rebalance()
   }
-
 }
 
