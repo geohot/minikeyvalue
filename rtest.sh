@@ -8,15 +8,15 @@ kill $(pgrep -f "indexdb")
 set -e
 
 # rebuild and compare the database
-./mdb -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB rebuild
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB rebuild
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 
 # do a rebalance, then put it back
-./mdb -volumes localhost:3001,localhost:3002,localhost:3003 -db $ALTDB rebalance
-./mdb -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB rebalance
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db $ALTDB rebalance
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB rebalance
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 
 # rebuild and compare the database
-./mdb -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB2 rebuild
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB2 rebuild
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB2
 

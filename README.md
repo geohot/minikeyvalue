@@ -23,7 +23,7 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 
 ```
 # this is using the code in server.go
-./mdb -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ server
+./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ server
 ```
 
 ### Start Volume Servers (default port 3001)
@@ -66,13 +66,13 @@ curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 
 ```
 # must shut down master first, since LevelDB can only be accessed by one process
-./mdb -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ rebalance
+./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ rebalance
 ```
 
 ### Rebuilding (to regenerate the LevelDB)
 
 ```
-./mdb -volumes localhost:3001,localhost:3002 -db /tmp/indexdbalt/ rebuild
+./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdbalt/ rebuild
 ```
 
 ### Performance
