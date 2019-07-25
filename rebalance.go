@@ -1,10 +1,8 @@
 package main
 
 import (
-  "os"
   "fmt"
   "sync"
-  "net/http"
   "strings"
   "github.com/syndtr/goleveldb/leveldb"
 )
@@ -98,18 +96,8 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
   return true
 }
 
-func main() {
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
-
-  volumes := strings.Split(os.Args[1], ",")
-  fmt.Println("rebalancing to", volumes)
-
-  db, err := leveldb.OpenFile(os.Args[2], nil)
-  if err != nil {
-    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
-    return
-  }
-  defer db.Close()
+func (a *App) Rebalance() {
+  fmt.Println("rebalancing to", a.volumes)
 
   var wg sync.WaitGroup
   reqs := make(chan RebalanceRequest, 20000)
@@ -117,19 +105,19 @@ func main() {
   for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
-        rebalance(db, req)
+        rebalance(a.db, req)
         wg.Done()
       }
     }()
   }
 
-  iter := db.NewIterator(nil, nil)
+  iter := a.db.NewIterator(nil, nil)
   defer iter.Release()
   for iter.Next() {
     key := make([]byte, len(iter.Key()))
     copy(key, iter.Key())
     rec := toRecord(iter.Value())
-    kvolumes := key2volume(key, volumes, replicas, subvolumes)
+    kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
     wg.Add(1)
     reqs <- RebalanceRequest{
       key: key,

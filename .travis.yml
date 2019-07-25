@@ -8,5 +8,5 @@ before_install:
 
 script:
   - docker run --rm --hostname localhost minikeyvalue bash -c "go test -v lib_test.go lib.go"
-  - docker run --rm --hostname localhost minikeyvalue bash -c "(./bringup.sh &) && ./test.py && go run thrasher.go lib.go && ./rtest.sh"
+  - docker run --rm --hostname localhost minikeyvalue bash -c "(./bringup.sh &) && ./test.py && go run tools/thrasher.go && ./rtest.sh"
 

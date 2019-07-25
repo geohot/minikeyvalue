@@ -1,11 +1,9 @@
 package main
 
 import (
-  "os"
   "fmt"
   "sync"
   "encoding/json"
-  "net/http"
   "github.com/syndtr/goleveldb/leveldb"
   "strings"
   "encoding/base64"
@@ -37,7 +35,7 @@ func get_files(url string) []File {
   return files
 }
 
-func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
+func rebuild(db *leveldb.DB, volumes []string, replicas int, subvolumes int, req RebuildRequest) bool {
   files := get_files(req.url)
   for _, f := range files {
     key, err := base64.StdEncoding.DecodeString(f.Name)
@@ -104,22 +102,13 @@ func valid(a File) bool {
   return true
 }
 
-func main() {
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+func (a *App) Rebuild() {
+  fmt.Println("rebuilding on", a.volumes)
 
-  volumes := strings.Split(os.Args[1], ",")
-  fmt.Println("rebuilding on", volumes)
-
-  db, err := leveldb.OpenFile(os.Args[2], nil)
-  if err != nil {
-    fmt.Println(fmt.Errorf("LevelDB open failed %s", err))
-    return
-  }
-  defer db.Close()
-
-  iter := db.NewIterator(nil, nil)
+  // empty db
+  iter := a.db.NewIterator(nil, nil)
   for iter.Next() {
-    db.Delete(iter.Key(), nil)
+    a.db.Delete(iter.Key(), nil)
   }
 
   var wg sync.WaitGroup
@@ -128,7 +117,7 @@ func main() {
   for i := 0; i < 128; i++ {
     go func() {
       for req := range reqs {
-        rebuild(db, volumes, req)
+        rebuild(a.db, a.volumes, a.replicas, a.subvolumes, req)
         wg.Done()
       }
     }()
@@ -148,7 +137,7 @@ func main() {
     }
   }
 
-  for _, vol := range volumes {
+  for _, vol := range a.volumes {
     has_subvolumes := false
     for _, f := range get_files(fmt.Sprintf("http://%s/", vol)) {
       if len(f.Name) == 4 && strings.HasPrefix(f.Name, "sv") && f.Type == "directory" {

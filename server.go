@@ -1,7 +1,6 @@
 package main
 
 import (
-  "os"
   "io"
   "sync"
   "bytes"
@@ -9,7 +8,6 @@ import (
   "strconv"
   "fmt"
   "math/rand"
-  "time"
   "net/http"
   "encoding/json"
   "github.com/syndtr/goleveldb/leveldb"
@@ -251,43 +249,5 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // 204, all good
     w.WriteHeader(204)
   }
-}
-
-func main() {
-  rand.Seed(time.Now().Unix())
-
-  fmt.Printf("database: %s\n", os.Args[1])
-  fmt.Printf("server port: %s\n", os.Args[2])
-  fmt.Printf("volume servers: %s\n", os.Args[3])
-  var volumes = strings.Split(os.Args[3], ",")
-
-  replicas := 3
-
-  if len(volumes) < replicas {
-    panic("Need at least as many volumes as replicas")
-  }
-
-  fallback := ""
-  if len(os.Args) > 4 {
-    fallback = os.Args[4]
-  }
-
-  http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
-
-  db, err := leveldb.OpenFile(os.Args[1], nil)
-  if err != nil {
-    panic(fmt.Sprintf("LevelDB open failed: %s", err))
-  }
-  defer db.Close()
-
-  http.ListenAndServe(":"+os.Args[2], &App{db: db,
-    lock: make(map[string]struct{}),
-    volumes: volumes,
-    fallback: fallback,
-    // TODO: make these command line arguments
-    replicas: replicas,
-    subvolumes: 10,
-    softdelete: false,
-  })
 }
 
