@@ -21,8 +21,9 @@ type ListResponse struct {
 
 func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   // operation is first query parameter (e.g. ?list&limit=10)
-  switch strings.Split(r.URL.RawQuery, "&")[0] {
-  case "list":
+  operation := strings.Split(r.URL.RawQuery, "&")[0]
+  switch operation {
+  case "list","deleted":
     start := r.URL.Query().Get("start")
     limit := 0
     qlimit := r.URL.Query().Get("limit")
@@ -44,6 +45,11 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
     keys := make([]string, 0)
     next := ""
     for iter.Next() {
+      rec := toRecord(iter.Value())
+      if (rec.deleted != NO && operation == "list") ||
+         (rec.deleted != SOFT && operation == "deleted") {
+        continue
+      }
       if len(keys) > 1000000 { // too large (need to specify limit)
         w.WriteHeader(413)
         return

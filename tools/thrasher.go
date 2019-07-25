@@ -13,8 +13,8 @@ import (
 )
 
 // copied from lib.go
-func remote_delete(remote string) error {
-  req, err := http.NewRequest("DELETE", remote, nil)
+func remote_destroy(remote string) error {
+  req, err := http.NewRequest("DESTROY", remote, nil)
   if err != nil {
     return err
   }
@@ -24,7 +24,7 @@ func remote_delete(remote string) error {
   }
   defer resp.Body.Close()
   if resp.StatusCode != 204 {
-    return fmt.Errorf("remote_delete: wrong status code %d", resp.StatusCode)
+    return fmt.Errorf("remote_destroy: wrong status code %d", resp.StatusCode)
   }
   return nil
 }
@@ -90,7 +90,7 @@ func main() {
           continue
         }
 
-        if err := remote_delete("http://localhost:3000/"+key); err != nil {
+        if err := remote_destroy("http://localhost:3000/"+key); err != nil {
           fmt.Println("DELETE FAILED", err)
           resp <- false
           continue
