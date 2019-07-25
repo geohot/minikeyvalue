@@ -175,7 +175,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb initially as deleted
     if !a.PutRecord(key, Record{kvolumes, true}) {
-      // should we delete?
       w.WriteHeader(500)
       return
     }
@@ -201,7 +200,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
     if !a.PutRecord(key, Record{kvolumes, false}) {
-      // should we delete?
       w.WriteHeader(500)
       return
     }
@@ -218,7 +216,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // mark as deleted
     if !a.PutRecord(key, Record{rec.rvolumes, true}) {
-      // can this fail?
       w.WriteHeader(500)
       return
     }
