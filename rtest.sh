@@ -8,15 +8,15 @@ kill $(pgrep -f "indexdb")
 set -e
 
 # rebuild and compare the database
-go run rebuild.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB
+./mdb -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB rebuild
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 
 # do a rebalance, then put it back
-go run rebalance.go lib.go localhost:3001,localhost:3002,localhost:3003 $ALTDB
-go run rebalance.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB
+./mdb -volumes localhost:3001,localhost:3002,localhost:3003 -db $ALTDB rebalance
+./mdb -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB rebalance
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 
 # rebuild and compare the database
-go run rebuild.go lib.go localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 $ALTDB2
+./mdb -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB2 rebuild
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB2
 

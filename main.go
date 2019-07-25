@@ -61,7 +61,7 @@ func main() {
   rand.Seed(time.Now().Unix())
 
   port := flag.Int("port", 3000, "Port for the server to listen on")
-  pdb := flag.String("database", "", "Path to leveldb")
+  pdb := flag.String("db", "", "Path to leveldb")
   fallback := flag.String("fallback", "", "Fallback server for 404")
   replicas := flag.Int("replicas", 3, "Amount of replicas to make of the data")
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes for sharding")
