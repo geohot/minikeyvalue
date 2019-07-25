@@ -24,6 +24,6 @@ COPY requirements.txt mkv/requirements.txt
 RUN pip3 install --no-cache-dir -r mkv/requirements.txt
 
 COPY mkv volume mkv/
-COPY src/*.go mkv/src
+COPY src/*.go mkv/src/
 COPY tools/* mkv/tools/
 WORKDIR /mkv
