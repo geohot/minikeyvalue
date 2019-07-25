@@ -23,7 +23,6 @@ type App struct {
   fallback string
   replicas int
   subvolumes int
-  softdelete bool
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -44,7 +43,7 @@ func (a *App) LockKey(key []byte) bool {
 
 func (a *App) GetRecord(key []byte) Record {
   data, err := a.db.Get(key, nil)
-  rec := Record{[]string{}, true}
+  rec := Record{[]string{}, HARD}
   if err != leveldb.ErrNotFound { rec = toRecord(data) }
   return rec
 }
@@ -64,7 +63,6 @@ func main() {
   fallback := flag.String("fallback", "", "Fallback server for 404")
   replicas := flag.Int("replicas", 3, "Amount of replicas to make of the data")
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes for sharding")
-  softdelete := flag.Bool("softdelete", false, "Make deletes only virtual")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage")
   flag.Parse()
 
@@ -98,7 +96,6 @@ func main() {
     fallback: *fallback,
     replicas: *replicas,
     subvolumes: *subvolumes,
-    softdelete: *softdelete,
   }
 
   if command == "server" {

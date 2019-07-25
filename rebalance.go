@@ -67,7 +67,7 @@ func rebalance(db *leveldb.DB, req RebalanceRequest) bool {
   }
 
   // update db
-  if err := db.Put(req.key, fromRecord(Record{req.kvolumes, false}), nil); err != nil {
+  if err := db.Put(req.key, fromRecord(Record{req.kvolumes, NO}), nil); err != nil {
     fmt.Println("put db error", err)
     return false
   }

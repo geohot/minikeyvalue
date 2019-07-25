@@ -52,7 +52,7 @@ func rebuild(db *leveldb.DB, volumes []string, replicas int, subvolumes int, req
       rec = toRecord(data)
       rec.rvolumes = append(rec.rvolumes, req.vol)
     } else {
-      rec = Record{[]string{req.vol}, false}
+      rec = Record{[]string{req.vol}, NO}
     }
 
     // sort by order in kvolumes (sorry it's n^2 but n is small)
@@ -78,7 +78,7 @@ func rebuild(db *leveldb.DB, volumes []string, replicas int, subvolumes int, req
       }
     }
 
-    if err := db.Put(key, fromRecord(Record{pvalues, false}), nil); err != nil {
+    if err := db.Put(key, fromRecord(Record{pvalues, NO}), nil); err != nil {
       fmt.Println("ugh", err)
       return false
     }

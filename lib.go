@@ -14,18 +14,24 @@ import (
 )
 
 // *** DB Type ***
+type Deleted int
+const (
+  NO Deleted = 0
+  SOFT Deleted = 1
+  HARD Deleted = 2
+)
 
 type Record struct {
   rvolumes []string
-  deleted bool
+  deleted Deleted
 }
 
 func toRecord(data []byte) Record {
   var rec Record
   ss := string(data)
-  rec.deleted = false
+  rec.deleted = NO
   if strings.HasPrefix(ss, "DELETED") {
-    rec.deleted = true
+    rec.deleted = SOFT
     ss = ss[7:]
   }
   rec.rvolumes = strings.Split(ss, ",")
@@ -34,7 +40,10 @@ func toRecord(data []byte) Record {
 
 func fromRecord(rec Record) []byte {
   cc := ""
-  if rec.deleted {
+  if rec.deleted == HARD {
+    panic("Can't put HARD delete in the database")
+  }
+  if rec.deleted == SOFT {
     cc = "DELETED"
   }
   return []byte(cc+strings.Join(rec.rvolumes, ","))

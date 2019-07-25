@@ -83,7 +83,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 
   // lock the key while a PUT or DELETE is in progress
-  if r.Method == "PUT" || r.Method == "DELETE" {
+  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "DESTROY" {
     if !a.LockKey(key) {
       // Conflict, retry later
       w.WriteHeader(409)
@@ -96,7 +96,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   case "GET", "HEAD":
     rec := a.GetRecord(key)
     var volume string
-    if rec.deleted {
+    if rec.deleted == SOFT || rec.deleted == HARD {
       if a.fallback == "" {
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
@@ -126,7 +126,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // check if we already have the key, and it's not deleted
     rec := a.GetRecord(key)
-    if !rec.deleted {
+    if rec.deleted == NO {
       // Forbidden to overwrite with PUT
       w.WriteHeader(403)
       return
@@ -136,7 +136,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 
     // push to leveldb initially as deleted
-    if !a.PutRecord(key, Record{kvolumes, true}) {
+    if !a.PutRecord(key, Record{kvolumes, SOFT}) {
       w.WriteHeader(500)
       return
     }
@@ -161,28 +161,30 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
-    if !a.PutRecord(key, Record{kvolumes, false}) {
+    if !a.PutRecord(key, Record{kvolumes, NO}) {
       w.WriteHeader(500)
       return
     }
 
     // 201, all good
     w.WriteHeader(201)
-  case "DELETE":
+  case "DELETE", "DESTROY":
+    destroy := r.Method == "DESTROY"
+
     // delete the key, first locally
     rec := a.GetRecord(key)
-    if rec.deleted {
+    if rec.deleted == HARD || (!destroy && rec.deleted == SOFT) {
       w.WriteHeader(404)
       return
     }
 
     // mark as deleted
-    if !a.PutRecord(key, Record{rec.rvolumes, true}) {
+    if !a.PutRecord(key, Record{rec.rvolumes, SOFT}) {
       w.WriteHeader(500)
       return
     }
 
-    if !a.softdelete {
+    if destroy {
       // then remotely, if softdelete is disabled
       delete_error := false
       for _, volume := range rec.rvolumes {
@@ -199,6 +201,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         return
       }
 
+      // this is a hard delete in the database, aka nothing
       a.db.Delete(key, nil)
     }
 
