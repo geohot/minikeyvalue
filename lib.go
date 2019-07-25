@@ -10,6 +10,7 @@ import (
   "io/ioutil"
   "net/http"
   "sort"
+  "strings"
 )
 
 // *** Params ***
@@ -17,6 +18,34 @@ import (
 var fallback string = ""
 var replicas int = 3
 var subvolumes uint = 10
+var softdelete bool = false
+
+// *** DB Type ***
+
+type Record struct {
+  rvolumes []string
+  deleted bool
+}
+
+func toRecord(data []byte) Record {
+  var rec Record
+  ss := string(data)
+  rec.deleted = false
+  if strings.HasPrefix(ss, "DELETED") {
+    rec.deleted = true
+    ss = ss[7:]
+  }
+  rec.rvolumes = strings.Split(ss, ",")
+  return rec
+}
+
+func fromRecord(rec Record) []byte {
+  cc := ""
+  if rec.deleted {
+    cc = "DELETED"
+  }
+  return []byte(cc+strings.Join(rec.rvolumes, ","))
+}
 
 // *** Hash Functions ***
 

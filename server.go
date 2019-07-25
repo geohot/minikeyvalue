@@ -96,6 +96,17 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
+func (a *App) GetRecord(key []byte) Record {
+  data, err := a.db.Get(key, nil)
+  rec := Record{[]string{}, true}
+  if err != leveldb.ErrNotFound { rec = toRecord(data) }
+  return rec
+}
+
+func (a *App) PutRecord(key []byte, rec Record) bool {
+  return a.db.Put(key, fromRecord(rec), nil) == nil
+}
+
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
@@ -121,9 +132,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
   switch r.Method {
   case "GET", "HEAD":
-    data, err := a.db.Get(key, nil)
+    rec := a.GetRecord(key)
     var volume string
-    if err == leveldb.ErrNotFound {
+    if rec.deleted {
       if fallback == "" {
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
@@ -133,13 +144,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         volume = fallback
       }
     } else {
-      volumes := strings.Split(string(data), ",")
       kvolumes := key2volume(key, a.volumes, replicas)
-      if needs_rebalance(volumes, kvolumes) {
+      if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
       // fetch from a random valid volume
-      volume = volumes[rand.Intn(len(volumes))]
+      volume = rec.rvolumes[rand.Intn(len(rec.rvolumes))]
     }
     remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
@@ -152,10 +162,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    _, err := a.db.Get(key, nil)
-
-    // check if we already have the key
-    if err != leveldb.ErrNotFound {
+    // check if we already have the key, and it's not deleted
+    rec := a.GetRecord(key)
+    if !rec.deleted {
       // Forbidden to overwrite with PUT
       w.WriteHeader(403)
       return
@@ -163,6 +172,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // we don't have the key, compute the remote URL
     kvolumes := key2volume(key, a.volumes, replicas)
+
+    // push to leveldb initially as deleted
+    if !a.PutRecord(key, Record{kvolumes, true}) {
+      w.WriteHeader(500)
+      return
+    }
 
     // write to each replica
     var buf bytes.Buffer
@@ -176,17 +191,15 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
       if remote_put(remote, bodylen, body) != nil {
         // we assume the remote wrote nothing if it failed
-        // TODO: rollback a partial replica write
         fmt.Printf("replica %d write failed: %s\n", i, remote)
         w.WriteHeader(500)
         return
       }
     }
 
-    // push to leveldb
+    // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
-    if err := a.db.Put(key, []byte(strings.Join(kvolumes, ",")), nil); err != nil {
-      // should we delete?
+    if !a.PutRecord(key, Record{kvolumes, false}) {
       w.WriteHeader(500)
       return
     }
@@ -195,28 +208,36 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(201)
   case "DELETE":
     // delete the key, first locally
-    data, err := a.db.Get(key, nil)
-    if err == leveldb.ErrNotFound {
+    rec := a.GetRecord(key)
+    if rec.deleted {
       w.WriteHeader(404)
       return
     }
 
-    a.db.Delete(key, nil)
-
-    // then remotely
-    delete_error := false
-    for _, volume := range strings.Split(string(data), ",") {
-      remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
-      if remote_delete(remote) != nil {
-        // if this fails, it's possible to get an orphan file
-        // but i'm not really sure what else to do?
-        delete_error = true
-      }
-    }
-
-    if delete_error {
+    // mark as deleted
+    if !a.PutRecord(key, Record{rec.rvolumes, true}) {
       w.WriteHeader(500)
       return
+    }
+
+    if !softdelete {
+      // then remotely, if softdelete is disabled
+      delete_error := false
+      for _, volume := range rec.rvolumes {
+        remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+        if remote_delete(remote) != nil {
+          // if this fails, it's possible to get an orphan file
+          // but i'm not really sure what else to do?
+          delete_error = true
+        }
+      }
+
+      if delete_error {
+        w.WriteHeader(500)
+        return
+      }
+
+      a.db.Delete(key, nil)
     }
 
     // 204, all good
