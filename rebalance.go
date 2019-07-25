@@ -129,7 +129,7 @@ func main() {
     key := make([]byte, len(iter.Key()))
     copy(key, iter.Key())
     rec := toRecord(iter.Value())
-    kvolumes := key2volume(key, volumes, replicas)
+    kvolumes := key2volume(key, volumes, replicas, subvolumes)
     wg.Add(1)
     reqs <- RebalanceRequest{
       key: key,

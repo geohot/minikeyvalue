@@ -144,7 +144,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         volume = fallback
       }
     } else {
-      kvolumes := key2volume(key, a.volumes, replicas)
+      kvolumes := key2volume(key, a.volumes, replicas, subvolumes)
       if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
@@ -171,7 +171,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // we don't have the key, compute the remote URL
-    kvolumes := key2volume(key, a.volumes, replicas)
+    kvolumes := key2volume(key, a.volumes, replicas, subvolumes)
 
     // push to leveldb initially as deleted
     if !a.PutRecord(key, Record{kvolumes, true}) {

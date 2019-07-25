@@ -17,7 +17,7 @@ import (
 
 var fallback string = ""
 var replicas int = 3
-var subvolumes uint = 10
+var subvolumes int = 10
 var softdelete bool = false
 
 // *** DB Type ***
@@ -69,7 +69,7 @@ func (s byScore) Less(i, j int) bool {
   return bytes.Compare(s[i].score, s[j].score) == 1
 }
 
-func key2volume(key []byte, volumes []string, count int) []string {
+func key2volume(key []byte, volumes []string, count int, svcount int) []string {
   // this is an intelligent way to pick the volume server for a file
   // stable in the volume server name (not position!)
   // and if more are added the correct portion will move (yay md5!)
@@ -88,7 +88,7 @@ func key2volume(key []byte, volumes []string, count int) []string {
   for i := 0; i < count; i++ {
     sv := sortvols[i]
     var volume string
-    if subvolumes == 1 {
+    if svcount == 1 {
       // if it's one, don't use the path structure for it
       volume = sv.volume
     } else {
@@ -96,7 +96,7 @@ func key2volume(key []byte, volumes []string, count int) []string {
       // using only a byte would cause potential imbalance
       svhash := uint(sv.score[12]) << 24 + uint(sv.score[13]) << 16 +
                 uint(sv.score[14]) << 8 + uint(sv.score[15])
-      volume = fmt.Sprintf("%s/sv%02X", sv.volume, svhash % subvolumes)
+      volume = fmt.Sprintf("%s/sv%02X", sv.volume, svhash % uint(svcount))
     }
     ret = append(ret, volume)
   }

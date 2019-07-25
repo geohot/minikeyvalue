@@ -45,7 +45,7 @@ func rebuild(db *leveldb.DB, volumes []string, req RebuildRequest) bool {
       fmt.Println("ugh", err)
       return false
     }
-    kvolumes := key2volume(key, volumes, replicas)
+    kvolumes := key2volume(key, volumes, replicas, subvolumes)
 
     dblock.Lock()
     data, err := db.Get(key, nil)
