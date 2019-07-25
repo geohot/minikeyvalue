@@ -67,10 +67,9 @@ func main() {
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes for sharding")
   softdelete := flag.Bool("softdelete", false, "Make deletes only virtual")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage")
-  fmt.Println(*pvolumes)
-  volumes := strings.Split(*pvolumes, ",")
   flag.Parse()
 
+  volumes := strings.Split(*pvolumes, ",")
   command := flag.Arg(0)
 
   if command != "server" && command != "rebuild" && command != "rebalance" {
