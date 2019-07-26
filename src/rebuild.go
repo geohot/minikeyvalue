@@ -21,8 +21,6 @@ type RebuildRequest struct {
   url string
 }
 
-var dblock sync.Mutex
-
 func get_files(url string) []File {
   //fmt.Println(url)
   var files []File
@@ -35,56 +33,59 @@ func get_files(url string) []File {
   return files
 }
 
-func rebuild(a *App, req RebuildRequest) bool {
-  files := get_files(req.url)
-  for _, f := range files {
-    key, err := base64.StdEncoding.DecodeString(f.Name)
-    if err != nil {
-      fmt.Println("ugh", err)
-      return false
-    }
-    kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
-
-    dblock.Lock()
-    data, err := a.db.Get(key, nil)
-    var rec Record
-    if err != leveldb.ErrNotFound {
-      rec = toRecord(data)
-      rec.rvolumes = append(rec.rvolumes, req.vol)
-    } else {
-      rec = Record{[]string{req.vol}, NO}
-    }
-
-    // sort by order in kvolumes (sorry it's n^2 but n is small)
-    pvalues := make([]string, 0)
-    for _, v := range kvolumes {
-      for _, v2 := range rec.rvolumes {
-        if v == v2 {
-          pvalues = append(pvalues, v)
-        }
-      }
-    }
-    // insert the ones that aren't there at the end
-    for _, v2 := range rec.rvolumes {
-      insert := true
-      for _, v := range kvolumes {
-        if v == v2 {
-          insert = false
-          break
-        }
-      }
-      if insert {
-        pvalues = append(pvalues, v2)
-      }
-    }
-
-    if !a.PutRecord(key, Record{pvalues, NO}) {
-      fmt.Println("ugh", err)
-      return false
-    }
-    dblock.Unlock()
-    fmt.Println(string(key), pvalues)
+func rebuild(a *App, vol string, name string) bool {
+  key, err := base64.StdEncoding.DecodeString(name)
+  if err != nil {
+    fmt.Println("base64 decode error", err)
+    return false
   }
+
+  kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+
+  if !a.LockKey(key) {
+    fmt.Println("lockKey issue", key)
+    return false
+  }
+  defer a.UnlockKey(key)
+
+  data, err := a.db.Get(key, nil)
+  var rec Record
+  if err != leveldb.ErrNotFound {
+    rec = toRecord(data)
+    rec.rvolumes = append(rec.rvolumes, vol)
+  } else {
+    rec = Record{[]string{vol}, NO}
+  }
+
+  // sort by order in kvolumes (sorry it's n^2 but n is small)
+  pvalues := make([]string, 0)
+  for _, v := range kvolumes {
+    for _, v2 := range rec.rvolumes {
+      if v == v2 {
+        pvalues = append(pvalues, v)
+      }
+    }
+  }
+  // insert the ones that aren't there at the end
+  for _, v2 := range rec.rvolumes {
+    insert := true
+    for _, v := range kvolumes {
+      if v == v2 {
+        insert = false
+        break
+      }
+    }
+    if insert {
+      pvalues = append(pvalues, v2)
+    }
+  }
+
+  if !a.PutRecord(key, Record{pvalues, NO}) {
+    fmt.Println("put error", err)
+    return false
+  }
+
+  fmt.Println(string(key), pvalues)
   return true
 }
 
@@ -117,7 +118,10 @@ func (a *App) Rebuild() {
   for i := 0; i < 128; i++ {
     go func() {
       for req := range reqs {
-        rebuild(a, req)
+        files := get_files(req.url)
+        for _, f := range files {
+          rebuild(a, req.vol, f.Name)
+        }
         wg.Done()
       }
     }()
