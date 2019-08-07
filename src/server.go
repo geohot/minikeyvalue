@@ -183,7 +183,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    if a.protect && rec.deleted == NO {
+    if !unlink && a.protect && rec.deleted == NO {
       w.WriteHeader(403)
       return
     }
