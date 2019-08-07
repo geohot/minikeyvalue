@@ -101,25 +101,24 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   switch r.Method {
   case "GET", "HEAD":
     rec := a.GetRecord(key)
-    var volume string
+    var remote string
     if rec.deleted == SOFT || rec.deleted == HARD {
       if a.fallback == "" {
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
         return
-      } else {
-        // fall through to fallback
-        volume = a.fallback
       }
+      // fall through to fallback
+      remote = fmt.Sprintf("http://%s%s", a.fallback, key)
     } else {
       kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
       if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
       // fetch from a random valid volume
-      volume = rec.rvolumes[rand.Intn(len(rec.rvolumes))]
+      volume := rec.rvolumes[rand.Intn(len(rec.rvolumes))]
+      remote = fmt.Sprintf("http://%s%s", volume, key2path(key))
     }
-    remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
     w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
