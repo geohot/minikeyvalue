@@ -77,7 +77,7 @@ func key2volume(key []byte, volumes []string, count int, svcount int) []string {
 	// this is an intelligent way to pick the volume server for a file
 	// stable in the volume server name (not position!)
 	// and if more are added the correct portion will move (yay md5!)
-	var sortvols []sortvol
+	sortvols := make([]sortvol, 0, len(volumes))
 	for _, v := range volumes {
 		hash := md5.New()
 		hash.Write(key)
