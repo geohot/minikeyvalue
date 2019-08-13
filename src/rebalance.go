@@ -18,7 +18,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
 	// find the volumes that are real
 	rvolumes := make([]string, 0)
 	for _, rv := range req.volumes {
-		if remote_head(fmt.Sprintf("http://%s%s", rv, kp)) {
+		if remoteHead(fmt.Sprintf("http://%s%s", rv, kp)) {
 			rvolumes = append(rvolumes, rv)
 		}
 	}
@@ -28,7 +28,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
 		return false
 	}
 
-	if !needs_rebalance(rvolumes, req.kvolumes) {
+	if !needsRebalance(rvolumes, req.kvolumes) {
 		return true
 	}
 
@@ -36,30 +36,30 @@ func rebalance(a *App, req RebalanceRequest) bool {
 	fmt.Println("rebalancing", string(req.key), "from", rvolumes, "to", req.kvolumes)
 
 	// always read from the first one
-	remote_from := fmt.Sprintf("http://%s%s", rvolumes[0], kp)
+	remoteFrom := fmt.Sprintf("http://%s%s", rvolumes[0], kp)
 
 	// read
-	ss, err := remote_get(remote_from)
+	ss, err := remoteGet(remoteFrom)
 	if err != nil {
-		fmt.Println("get error", err, remote_from)
+		fmt.Println("get error", err, remoteFrom)
 		return false
 	}
 
 	// write to the kvolumes
 	for _, v := range req.kvolumes {
-		needs_write := true
+		needsWrite := true
 		// see if it's already there
 		for _, v2 := range rvolumes {
 			if v == v2 {
-				needs_write = false
+				needsWrite = false
 				break
 			}
 		}
-		if needs_write {
-			remote_to := fmt.Sprintf("http://%s%s", v, kp)
+		if needsWrite {
+			remoteTo := fmt.Sprintf("http://%s%s", v, kp)
 			// write
-			if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
-				fmt.Println("put error", err, remote_to)
+			if err := remotePut(remoteTo, int64(len(ss)), strings.NewReader(ss)); err != nil {
+				fmt.Println("put error", err, remoteTo)
 				return false
 			}
 		}
@@ -72,27 +72,24 @@ func rebalance(a *App, req RebalanceRequest) bool {
 	}
 
 	// delete from the volumes that now aren't kvolumes
-	delete_error := false
+	deleteError := false
 	for _, v2 := range rvolumes {
-		needs_delete := true
+		needsDelete := true
 		for _, v := range req.kvolumes {
 			if v == v2 {
-				needs_delete = false
+				needsDelete = false
 				break
 			}
 		}
-		if needs_delete {
-			remote_del := fmt.Sprintf("http://%s%s", v2, kp)
-			if err := remote_delete(remote_del); err != nil {
-				fmt.Println("delete error", err, remote_del)
-				delete_error = true
+		if needsDelete {
+			remoteDel := fmt.Sprintf("http://%s%s", v2, kp)
+			if err := remoteDelete(remoteDel); err != nil {
+				fmt.Println("delete error", err, remoteDel)
+				deleteError = true
 			}
 		}
 	}
-	if delete_error {
-		return false
-	}
-	return true
+	return deleteError
 }
 
 func (a *App) Rebalance() {

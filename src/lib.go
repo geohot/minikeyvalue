@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -108,7 +107,7 @@ func key2volume(key []byte, volumes []string, count int, svcount int) []string {
 	return ret
 }
 
-func needs_rebalance(volumes []string, kvolumes []string) bool {
+func needsRebalance(volumes []string, kvolumes []string) bool {
 	if len(volumes) != len(kvolumes) {
 		return true
 	}
@@ -122,7 +121,7 @@ func needs_rebalance(volumes []string, kvolumes []string) bool {
 
 // *** Remote Access Functions ***
 
-func remote_delete(remote string) error {
+func remoteDelete(remote string) error {
 	req, err := http.NewRequest("DELETE", remote, nil)
 	if err != nil {
 		return err
@@ -138,7 +137,7 @@ func remote_delete(remote string) error {
 	return nil
 }
 
-func remote_put(remote string, length int64, body io.Reader) error {
+func remotePut(remote string, length int64, body io.Reader) error {
 	req, err := http.NewRequest("PUT", remote, body)
 	if err != nil {
 		return err
@@ -155,14 +154,14 @@ func remote_put(remote string, length int64, body io.Reader) error {
 	return nil
 }
 
-func remote_get(remote string) (string, error) {
+func remoteGet(remote string) (string, error) {
 	resp, err := http.Get(remote)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", errors.New(fmt.Sprintf("remote_get: wrong status code %d", resp.StatusCode))
+		return "", fmt.Errorf("remote_get: wrong status code %d", resp.StatusCode)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -171,7 +170,7 @@ func remote_get(remote string) (string, error) {
 	return string(body), nil
 }
 
-func remote_head(remote string) bool {
+func remoteHead(remote string) bool {
 	req, err := http.NewRequest("HEAD", remote, nil)
 	if err != nil {
 		return false

@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // *** Master Server ***
@@ -89,7 +90,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// lock the key while a PUT or DELETE is in progress
-	if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" {
+	const unlink = "UNLINK"
+	if r.Method == "PUT" || r.Method == "DELETE" || r.Method == unlink {
 		if !a.LockKey(key) {
 			// Conflict, retry later
 			w.WriteHeader(409)
@@ -107,13 +109,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Length", "0")
 				w.WriteHeader(404)
 				return
-			} else {
-				// fall through to fallback
-				volume = a.fallback
 			}
+			// fall through to fallback
+			volume = a.fallback
 		} else {
 			kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
-			if needs_rebalance(rec.rvolumes, kvolumes) {
+			if needsRebalance(rec.rvolumes, kvolumes) {
 				fmt.Println("on wrong volumes, needs rebalance")
 			}
 			// fetch from a random valid volume
@@ -157,7 +158,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				body = bytes.NewReader(buf.Bytes())
 			}
 			remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-			if remote_put(remote, bodylen, body) != nil {
+			if remotePut(remote, bodylen, body) != nil {
 				// we assume the remote wrote nothing if it failed
 				fmt.Printf("replica %d write failed: %s\n", i, remote)
 				w.WriteHeader(500)
@@ -174,8 +175,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// 201, all good
 		w.WriteHeader(201)
-	case "DELETE", "UNLINK":
-		unlink := r.Method == "UNLINK"
+	case "DELETE", unlink:
+		unlink := r.Method == unlink
 
 		// delete the key, first locally
 		rec := a.GetRecord(key)
@@ -197,17 +198,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if !unlink {
 			// then remotely, if this is not an unlink
-			delete_error := false
+			deleteError := false
 			for _, volume := range rec.rvolumes {
 				remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
-				if remote_delete(remote) != nil {
+				if remoteDelete(remote) != nil {
 					// if this fails, it's possible to get an orphan file
 					// but i'm not really sure what else to do?
-					delete_error = true
+					deleteError = true
 				}
 			}
 
-			if delete_error {
+			if deleteError {
 				w.WriteHeader(500)
 				return
 			}

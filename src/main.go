@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb"
+	"log"
 	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // *** App struct and methods ***
@@ -103,11 +105,15 @@ func main() {
 		protect:    *protect,
 	}
 
-	if command == "server" {
-		http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
-	} else if command == "rebuild" {
+	switch command {
+	case "server":
+		err = http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "rebuild":
 		a.Rebuild()
-	} else if command == "rebalance" {
+	case "rebalance":
 		a.Rebalance()
 	}
 }
