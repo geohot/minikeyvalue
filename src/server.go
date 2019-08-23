@@ -89,7 +89,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 
   // lock the key while a PUT or DELETE is in progress
-  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" {
+  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
     if !a.LockKey(key) {
       // Conflict, retry later
       w.WriteHeader(409)
@@ -217,6 +217,27 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // 204, all good
     w.WriteHeader(204)
+  case "REBALANCE":
+    rec := a.GetRecord(key)
+    if rec.deleted != NO {
+      w.WriteHeader(404)
+      return
+    }
+
+    kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+    if needs_rebalance(rec.rvolumes, kvolumes) {
+      rbreq := RebalanceRequest{ key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
+      if !rebalance(a, rbreq) {
+        w.WriteHeader(400)
+        return
+      }
+
+      // 204, all good
+      w.WriteHeader(204)
+    }
+
+    // 304, already balanced
+    w.WriteHeader(304)
   }
 }
 
