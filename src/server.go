@@ -115,9 +115,22 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
-      // fetch from a random valid volume
-      volume := rec.rvolumes[rand.Intn(len(rec.rvolumes))]
-      remote = fmt.Sprintf("http://%s%s", volume, key2path(key))
+      // check the volume servers in a random order
+      good := false
+      for _, vn := range rand.Perm(len(rec.rvolumes)) {
+        remote = fmt.Sprintf("http://%s%s", rec.rvolumes[vn], key2path(key))
+        if remote_head(remote) {
+          good = true
+          break
+        }
+      }
+      // if not found on any volume servers, fail before the redirect
+      if !good {
+        w.Header().Set("Content-Length", "0")
+        w.WriteHeader(404)
+        return
+      }
+      // note: this can race and fail, but in that case the client will handle the retry
     }
     w.Header().Set("Location", remote)
     w.Header().Set("Content-Length", "0")
