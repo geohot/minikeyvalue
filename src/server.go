@@ -89,7 +89,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 
   // lock the key while a PUT or DELETE is in progress
-  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" {
+  if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
     if !a.LockKey(key) {
       // Conflict, retry later
       w.WriteHeader(409)
@@ -101,25 +101,24 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   switch r.Method {
   case "GET", "HEAD":
     rec := a.GetRecord(key)
-    var volume string
+    var remote string
     if rec.deleted == SOFT || rec.deleted == HARD {
       if a.fallback == "" {
         w.Header().Set("Content-Length", "0")
         w.WriteHeader(404)
         return
-      } else {
-        // fall through to fallback
-        volume = a.fallback
       }
+      // fall through to fallback
+      remote = fmt.Sprintf("http://%s%s", a.fallback, key)
     } else {
       kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
       if needs_rebalance(rec.rvolumes, kvolumes) {
         fmt.Println("on wrong volumes, needs rebalance")
       }
       // fetch from a random valid volume
-      volume = rec.rvolumes[rand.Intn(len(rec.rvolumes))]
+      volume := rec.rvolumes[rand.Intn(len(rec.rvolumes))]
+      remote = fmt.Sprintf("http://%s%s", volume, key2path(key))
     }
-    remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
     w.Header().Set("Location", remote)
     w.Header().Set("Content-Length", "0")
     w.WriteHeader(302)
@@ -184,7 +183,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    if a.protect && rec.deleted == NO {
+    if !unlink && a.protect && rec.deleted == NO {
       w.WriteHeader(403)
       return
     }
@@ -218,6 +217,27 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // 204, all good
     w.WriteHeader(204)
+  case "REBALANCE":
+    rec := a.GetRecord(key)
+    if rec.deleted != NO {
+      w.WriteHeader(404)
+      return
+    }
+
+    kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+    if needs_rebalance(rec.rvolumes, kvolumes) {
+      rbreq := RebalanceRequest{ key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
+      if !rebalance(a, rbreq) {
+        w.WriteHeader(400)
+        return
+      }
+
+      // 204, all good
+      w.WriteHeader(204)
+    }
+
+    // 304, already balanced
+    w.WriteHeader(304)
   }
 }
 

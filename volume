@@ -43,6 +43,7 @@ http {
     listen $PORT default_server backlog=4096;
     location / {
       root $VOLUME;
+      disable_symlinks off;
 
       client_body_temp_path $VOLUME/body_temp;
       client_max_body_size 0;
