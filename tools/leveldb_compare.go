@@ -3,6 +3,7 @@ package main
 import (
   "os"
   "fmt"
+  "strings"
   "github.com/syndtr/goleveldb/leveldb"
   "github.com/syndtr/goleveldb/leveldb/opt"
   //"github.com/syndtr/goleveldb/leveldb/util"
@@ -27,6 +28,9 @@ func main() {
     if k1 != k2 {
       panic(fmt.Sprintf("key mismatch %s != %s", k1, k2))
     }
+    // remove the hashes for compare
+    if strings.HasPrefix(v1, "HASH") { v1 = v1[36:] }
+    if strings.HasPrefix(v2, "HASH") { v2 = v2[36:] }
     if v1 != v2 {
       // we can continue with a value mismatch
       fmt.Printf("%s: %s != %s\n", k1, v1, v2)
