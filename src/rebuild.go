@@ -54,7 +54,7 @@ func rebuild(a *App, vol string, name string) bool {
     rec = toRecord(data)
     rec.rvolumes = append(rec.rvolumes, vol)
   } else {
-    rec = Record{[]string{vol}, NO}
+    rec = Record{[]string{vol}, NO, ""}
   }
 
   // sort by order in kvolumes (sorry it's n^2 but n is small)
@@ -80,7 +80,7 @@ func rebuild(a *App, vol string, name string) bool {
     }
   }
 
-  if !a.PutRecord(key, Record{pvalues, NO}) {
+  if !a.PutRecord(key, Record{pvalues, NO, ""}) {
     fmt.Println("put error", err)
     return false
   }

@@ -4,7 +4,7 @@ import (
   "testing"
   "strings"
   "reflect"
-  //"fmt"
+  "fmt"
 )
 
 // ensure the path hashing function doesn't change
@@ -47,12 +47,15 @@ func fromToRecordExample(t *testing.T, rec Record, val string) {
   if !reflect.DeepEqual(rec, reca) {
     t.Fatal("toRecord(fromRecord(rec)) failed")
   }
+  fmt.Println(val)
 }
 
 func Test_fromToRecord(t *testing.T) {
-  fromToRecordExample(t, Record{[]string{"hello", "world"}, SOFT}, "DELETEDhello,world")
-  fromToRecordExample(t, Record{[]string{"hello", "world"}, NO}, "hello,world")
-  fromToRecordExample(t, Record{[]string{"hello"}, NO}, "hello")
-  fromToRecordExample(t, Record{[]string{"hello"}, SOFT}, "DELETEDhello")
+  fromToRecordExample(t, Record{[]string{"hello", "world"}, SOFT, ""}, "DELETEDhello,world")
+  fromToRecordExample(t, Record{[]string{"hello", "world"}, NO, ""}, "hello,world")
+  fromToRecordExample(t, Record{[]string{"hello"}, NO, ""}, "hello")
+  fromToRecordExample(t, Record{[]string{"hello"}, SOFT, ""}, "DELETEDhello")
+  fromToRecordExample(t, Record{[]string{"hello"}, SOFT, "5d41402abc4b2a76b9719d911017c592"}, "DELETEDHASH5d41402abc4b2a76b9719d911017c592hello")
+  fromToRecordExample(t, Record{[]string{"hello"}, NO, "5d41402abc4b2a76b9719d911017c592"}, "HASH5d41402abc4b2a76b9719d911017c592hello")
 }
 

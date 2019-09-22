@@ -44,7 +44,7 @@ func (a *App) LockKey(key []byte) bool {
 
 func (a *App) GetRecord(key []byte) Record {
   data, err := a.db.Get(key, nil)
-  rec := Record{[]string{}, HARD}
+  rec := Record{[]string{}, HARD, ""}
   if err != leveldb.ErrNotFound { rec = toRecord(data) }
   return rec
 }
@@ -72,7 +72,7 @@ func main() {
   command := flag.Arg(0)
 
   if command != "server" && command != "rebuild" && command != "rebalance" {
-    fmt.Println("Usage: ./mkv <server, rebuild, rebalance>\n")
+    fmt.Println("Usage: ./mkv <server, rebuild, rebalance>")
     flag.PrintDefaults()
     return
   }

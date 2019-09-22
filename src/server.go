@@ -6,6 +6,7 @@ import (
   "strings"
   "strconv"
   "fmt"
+  "crypto/md5"
   "math/rand"
   "net/http"
   "encoding/json"
@@ -102,6 +103,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   case "GET", "HEAD":
     rec := a.GetRecord(key)
     var remote string
+    if len(rec.hash) != 0 {
+      // note that the hash is always of the whole file, not the content requested
+      w.Header().Set("Content-Md5", rec.hash)
+    }
     if rec.deleted == SOFT || rec.deleted == HARD {
       if a.fallback == "" {
         w.Header().Set("Content-Length", "0")
@@ -153,8 +158,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // we don't have the key, compute the remote URL
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 
-    // push to leveldb initially as deleted
-    if !a.PutRecord(key, Record{kvolumes, SOFT}) {
+    // push to leveldb initially as deleted, and without a hash since we don't have it yet
+    if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
       w.WriteHeader(500)
       return
     }
@@ -177,9 +182,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
     }
 
+    // compute the hash of the value
+    hash := fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
+
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
-    if !a.PutRecord(key, Record{kvolumes, NO}) {
+    if !a.PutRecord(key, Record{kvolumes, NO, hash}) {
       w.WriteHeader(500)
       return
     }
@@ -202,7 +210,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // mark as deleted
-    if !a.PutRecord(key, Record{rec.rvolumes, SOFT}) {
+    if !a.PutRecord(key, Record{rec.rvolumes, SOFT, rec.hash}) {
       w.WriteHeader(500)
       return
     }

@@ -66,7 +66,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
   }
 
   // update db
-  if !a.PutRecord(req.key, Record{req.kvolumes, NO}) {
+  if !a.PutRecord(req.key, Record{req.kvolumes, NO, ""}) {
     fmt.Println("put db error", err)
     return false
   }

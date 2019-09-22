@@ -185,6 +185,15 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="")
     self.assertEqual(r.status_code, 411)
 
+  def test_content_hash(self):
+    for i in range(100):
+      key = self.get_fresh_key()
+      r = requests.put(key, data=key)
+      self.assertEqual(r.status_code, 201)
+
+      r = requests.head(key, allow_redirects=False)
+      self.assertEqual(r.headers['Content-Md5'], hashlib.md5(key).hexdigest())
+
 if __name__ == '__main__':
   # wait for servers
   for port in range(3000,3006):
