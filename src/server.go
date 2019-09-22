@@ -6,9 +6,11 @@ import (
   "strings"
   "strconv"
   "fmt"
+  "crypto/md5"
   "math/rand"
   "net/http"
   "encoding/json"
+  "encoding/hex"
   "github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -153,7 +155,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     // we don't have the key, compute the remote URL
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 
-    // push to leveldb initially as deleted
+    // push to leveldb initially as deleted, and without a hash since we don't have it yet
     if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
       w.WriteHeader(500)
       return
@@ -177,9 +179,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
     }
 
+    // compute the hash of the value
+    hasher := md5.New()
+    if _, err := io.Copy(hasher, body); err != nil {
+      w.WriteHeader(500)
+      return
+    }
+    hash := hex.EncodeToString(hasher.Sum(nil)[:16])
+
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
-    if !a.PutRecord(key, Record{kvolumes, NO, ""}) {
+    if !a.PutRecord(key, Record{kvolumes, NO, hash}) {
       w.WriteHeader(500)
       return
     }
@@ -202,7 +212,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // mark as deleted
-    if !a.PutRecord(key, Record{rec.rvolumes, SOFT, ""}) {
+    if !a.PutRecord(key, Record{rec.rvolumes, SOFT, rec.hash}) {
       w.WriteHeader(500)
       return
     }
