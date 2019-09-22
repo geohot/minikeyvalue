@@ -10,7 +10,6 @@ import (
   "math/rand"
   "net/http"
   "encoding/json"
-  "encoding/hex"
   "github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -104,6 +103,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   case "GET", "HEAD":
     rec := a.GetRecord(key)
     var remote string
+    if len(rec.hash) != 0 {
+      // note that the hash is always of the whole file, not the content requested
+      w.Header().Set("Content-MD5", rec.hash)
+    }
     if rec.deleted == SOFT || rec.deleted == HARD {
       if a.fallback == "" {
         w.Header().Set("Content-Length", "0")
@@ -180,12 +183,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // compute the hash of the value
-    hasher := md5.New()
-    if _, err := io.Copy(hasher, body); err != nil {
-      w.WriteHeader(500)
-      return
-    }
-    hash := hex.EncodeToString(hasher.Sum(nil)[:16])
+    hash := fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
 
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
