@@ -154,7 +154,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 
     // push to leveldb initially as deleted
-    if !a.PutRecord(key, Record{kvolumes, SOFT}) {
+    if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
       w.WriteHeader(500)
       return
     }
@@ -179,7 +179,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
-    if !a.PutRecord(key, Record{kvolumes, NO}) {
+    if !a.PutRecord(key, Record{kvolumes, NO, ""}) {
       w.WriteHeader(500)
       return
     }
@@ -202,7 +202,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     // mark as deleted
-    if !a.PutRecord(key, Record{rec.rvolumes, SOFT}) {
+    if !a.PutRecord(key, Record{rec.rvolumes, SOFT, ""}) {
       w.WriteHeader(500)
       return
     }
