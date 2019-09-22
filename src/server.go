@@ -105,7 +105,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     var remote string
     if len(rec.hash) != 0 {
       // note that the hash is always of the whole file, not the content requested
-      w.Header().Set("Content-MD5", rec.hash)
+      w.Header().Set("Content-Md5", rec.hash)
     }
     if rec.deleted == SOFT || rec.deleted == HARD {
       if a.fallback == "" {
