@@ -31,7 +31,7 @@ PORT=3003 ./volume /tmp/volume3/
 ### Start Master Server (default port 3000)
 
 ```
-./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ server
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
 
 
