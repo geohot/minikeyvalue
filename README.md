@@ -19,19 +19,21 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 - DELETE /key
   - Blocks. 204 = deleted, anything else = probably not deleted.
 
-### Start Master Server (default port 3000)
-
-```
-./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ server
-```
-
 ### Start Volume Servers (default port 3001)
 
 ```
 # this is just nginx under the hood
 PORT=3001 ./volume /tmp/volume1/
 PORT=3002 ./volume /tmp/volume2/
+PORT=3003 ./volume /tmp/volume3/
 ```
+
+### Start Master Server (default port 3000)
+
+```
+./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ server
+```
+
 
 ### Usage
 
