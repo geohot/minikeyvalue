@@ -120,18 +120,22 @@ mv .htpasswd /etc/nginx
 ```
 
 ```
-# this is just nginx under the hood
+# start nginx with the path of .htpasswd in AUTH enviromental variable
 AUTH=/etc/nginx/.htpasswd PORT=3001 ./volume /tmp/volume1/
 AUTH=/etc/nginx/.htpasswd PORT=3002 ./volume /tmp/volume2/
 AUTH=/etc/nginx/.htpasswd PORT=3003 ./volume /tmp/volume3/
 ```
 
 ```
+# pass the .htpasswd to the -auth flag to serve with basic authentification
 ./mkv -auth /etc/nginx/.htpasswd -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
+
+# in case of a rebuild or rebalance the user and password need to be passed with -userpass
 ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -userpass admin:thisisatest -db /tmp/indexdb/ rebalance
 ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -userpass admin:thisisatest -db /tmp/indexdbalt/ rebuild
 ```
 
 ```
+# curl with --user <USER>:<PASSWORD>
 curl --user admin:thisisatest -v -L -X PUT -d bigswag localhost:3000/wehave
 ```
