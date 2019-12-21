@@ -112,7 +112,7 @@ thats 3815.40/sec
 
 ```
 # generate htpasswd file (using apache2-utils) and move it /etc/nginx
-htpasswd -c .htpasswd -nb admin thisisatest
+htpasswd -b -c .htpasswd admin thisisatest
 mv .htpasswd /etc/nginx
 ```
 
