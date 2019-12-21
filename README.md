@@ -34,7 +34,6 @@ PORT=3003 ./volume /tmp/volume3/
 ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
 
-
 ### Usage
 
 ```
@@ -109,3 +108,10 @@ starting thrasher
 thats 3815.40/sec
 ```
 
+### Performance
+
+```
+# generate htpasswd file (using apache2-utils) and move it /etc/nginx
+htpasswd -c .htpasswd admin
+mv .htpasswd /etc/nginx
+```

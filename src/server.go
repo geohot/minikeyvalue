@@ -10,8 +10,8 @@ import (
   "math/rand"
   "net/http"
   "encoding/json"
-  "github.com/syndtr/goleveldb/leveldb/util"
   "encoding/base64"
+  "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // *** Master Server ***

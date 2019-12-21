@@ -8,9 +8,9 @@ import (
   "net/http"
   "fmt"
   "strings"
+  "encoding/base64"
   "github.com/syndtr/goleveldb/leveldb"
   "github.com/tg123/go-htpasswd"
-  "encoding/base64"
 )
 
 // *** App struct and methods ***
@@ -75,7 +75,7 @@ func main() {
 
   // If basic authentification activated
   var htpasswdfile *htpasswd.File
-  if *auth != ""{
+  if *auth != "" {
     htpasswdfile, _ = htpasswd.New(*auth, htpasswd.DefaultSystems, nil)
     fmt.Println("Basic authentification activated and htpasswd file loaded")
   }
@@ -117,7 +117,10 @@ func main() {
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
   } else {
-    encodedb64 := base64.StdEncoding.EncodeToString([]byte(*userpass))
+    var encodedb64 string
+    if *userpass != "" {
+      encodedb64 = base64.StdEncoding.EncodeToString([]byte(*userpass))
+    }
     if command == "rebuild" {
       a.Rebuild(encodedb64)
     } else if command == "rebalance" {
