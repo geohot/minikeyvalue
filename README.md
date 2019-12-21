@@ -112,7 +112,7 @@ thats 3815.40/sec
 
 ```
 # generate htpasswd file (using apache2-utils) and move it /etc/nginx
-htpasswd -c .htpasswd admin
+htpasswd -c .htpasswd -nb admin thisisatest
 mv .htpasswd /etc/nginx
 ```
 
@@ -125,4 +125,10 @@ AUTH=/etc/nginx/.htpasswd PORT=3003 ./volume /tmp/volume3/
 
 ```
 ./mkv -auth /etc/nginx/.htpasswd -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -userpass admin:thisisatest -db /tmp/indexdb/ rebalance
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -userpass admin:thisisatest -db /tmp/indexdbalt/ rebuild
+```
+
+```
+curl --user admin:thisisatest -v -L -X PUT -d bigswag localhost:3000/wehave
 ```
