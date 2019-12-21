@@ -105,7 +105,7 @@ Usage: ./mkv <server, rebuild, rebalance>
 # Fetching non-existent key: 116338 req/sec
 wrk -t2 -c100 -d10s http://localhost:3000/key
 
-# go run thrasher.go lib.go
+# go run thrasher.go
 starting thrasher
 10000 write/read/delete in 2.620922675s
 thats 3815.40/sec
