@@ -108,10 +108,14 @@ starting thrasher
 thats 3815.40/sec
 ```
 
-### Performance
+### Basic Authorization
 
 ```
 # generate htpasswd file (using apache2-utils) and move it /etc/nginx
 htpasswd -c .htpasswd admin
 mv .htpasswd /etc/nginx
+```
+
+```
+./mkv -auth /etc/nginx/.htpasswd -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```

@@ -77,39 +77,38 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (a *App) GetAuthToken(w http.ResponseWriter, r *http.Request) string {
+func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request) (string, bool) {
   var authtoken string
   if a.htpasswdfile != nil {
     authtoken = r.Header.Get("Authorization")
-    a.CheckAuthorization(w, r, authtoken)
-  }
-  return authtoken
-}
-
-func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request, authtoken string) {
-  if authtoken != "" {
-    authString := strings.Split(authtoken, "Basic ")[1]
-    sDec, _ := base64.StdEncoding.DecodeString(authString)
-    splitauth := strings.Split(string(sDec), ":")
-    username := splitauth[0]
-    password := splitauth[1]
-    if !a.htpasswdfile.Match(username, password) {
-      fmt.Println("invalid authorization")
+    if authtoken != "" {
+      authString := strings.Split(authtoken, "Basic ")[1]
+      sDec, _ := base64.StdEncoding.DecodeString(authString)
+      splitauth := strings.Split(string(sDec), ":")
+      username := splitauth[0]
+      password := splitauth[1]
+      if !a.htpasswdfile.Match(username, password) {
+        fmt.Println("invalid authorization")
+        w.WriteHeader(401)
+        return authtoken, false
+      }
+    } else {
+      fmt.Println("no authorization header")
       w.WriteHeader(401)
-      return
+      return authtoken, false
     }
-  } else {
-    fmt.Println("no authorization header")
-    w.WriteHeader(401)
-    return
   }
+  return authtoken, true
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
   // Check if basic authentification received
-  authtoken := a.GetAuthToken(w, r)
+  authtoken, authorized := a.CheckAuthorization(w, r)
+  if !authorized {
+    return
+  }
 
   // this is a list query
   if len(r.URL.RawQuery) > 0 {
