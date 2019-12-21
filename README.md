@@ -53,7 +53,7 @@ curl -v -L -X UNLINK localhost:3000/wehave
 curl -v -L "localhost:3000/we?list"
 
 # list unlinked keys ripe for DELETE
-curl -v -L localhost:3000/?unlinked
+curl -v -L "localhost:3000/?unlinked"
 
 # put file in key "file.txt"
 curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt
