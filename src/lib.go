@@ -127,6 +127,7 @@ func needs_rebalance(volumes []string, kvolumes []string) bool {
 }
 
 
+// set Authorization header if it was received
 func set_auth_header(req *http.Request, authtoken string) *http.Request{
   if authtoken != "" {
       req.Header.Set("Authorization", authtoken)

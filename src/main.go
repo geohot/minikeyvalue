@@ -10,6 +10,7 @@ import (
   "strings"
   "github.com/syndtr/goleveldb/leveldb"
   "github.com/tg123/go-htpasswd"
+  "encoding/base64"
 )
 
 // *** App struct and methods ***
@@ -69,6 +70,7 @@ func main() {
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
   auth := flag.String("auth", "", "Path for basic auth file")
+  userpass := flag.String("userpass", "", "username:password for rebalance and rebuild with auth")
   flag.Parse()
 
   // If basic authentification activated
@@ -114,9 +116,12 @@ func main() {
 
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
-  } else if command == "rebuild" {
-    a.Rebuild()
-  } else if command == "rebalance" {
-    a.Rebalance()
+  } else {
+    encodedb64 := base64.StdEncoding.EncodeToString([]byte(*userpass))
+    if command == "rebuild" {
+      a.Rebuild(encodedb64)
+    } else if command == "rebalance" {
+      a.Rebalance(encodedb64)
+    }
   }
 }

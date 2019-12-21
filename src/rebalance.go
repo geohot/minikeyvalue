@@ -95,10 +95,8 @@ func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
   return true
 }
 
-func (a *App) Rebalance() {
+func (a *App) Rebalance(encodedb64 string) {
   fmt.Println("rebalancing to", a.volumes)
-
-  authtoken := "thisisatest"
 
   var wg sync.WaitGroup
   reqs := make(chan RebalanceRequest, 20000)
@@ -106,7 +104,7 @@ func (a *App) Rebalance() {
   for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
-        rebalance(a, req, authtoken)
+        rebalance(a, req, encodedb64)
         wg.Done()
       }
     }()
