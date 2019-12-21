@@ -90,13 +90,13 @@ Usage: ./mkv <server, rebuild, rebalance>
 
 ```
 # must shut down master first, since LevelDB can only be accessed by one process
-./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ rebalance
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ rebalance
 ```
 
 ### Rebuilding (to regenerate the LevelDB)
 
 ```
-./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdbalt/ rebuild
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdbalt/ rebuild
 ```
 
 ### Performance
