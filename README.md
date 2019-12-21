@@ -117,5 +117,12 @@ mv .htpasswd /etc/nginx
 ```
 
 ```
+# this is just nginx under the hood
+AUTH=/etc/nginx/.htpasswd PORT=3001 ./volume /tmp/volume1/
+AUTH=/etc/nginx/.htpasswd PORT=3002 ./volume /tmp/volume2/
+AUTH=/etc/nginx/.htpasswd PORT=3003 ./volume /tmp/volume3/
+```
+
+```
 ./mkv -auth /etc/nginx/.htpasswd -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
