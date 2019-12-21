@@ -21,10 +21,10 @@ type RebuildRequest struct {
   url string
 }
 
-func get_files(url string, reqToken string) []File {
-  //fmt.Println(url)
+func get_files(url string, authtoken string) []File {
+  // fmt.Println(url)
   var files []File
-  dat, err := remote_get(url, reqToken)
+  dat, err := remote_get(url, authtoken)
   if err != nil {
     fmt.Println("ugh", err)
     return files

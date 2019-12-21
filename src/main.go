@@ -120,6 +120,7 @@ func main() {
     var encodedb64 string
     if *userpass != "" {
       encodedb64 = base64.StdEncoding.EncodeToString([]byte(*userpass))
+      encodedb64 = "Basic " + encodedb64
     }
     if command == "rebuild" {
       a.Rebuild(encodedb64)
