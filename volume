@@ -43,9 +43,6 @@ if [[ -z "${AUTH}" ]]; then
     server {
       listen $PORT default_server backlog=4096;
       location / {
-        auth_basic           "Restricted";
-        auth_basic_user_file $AUTH;
-
         root $VOLUME;
         disable_symlinks off;
 
@@ -102,6 +99,9 @@ else
     server {
       listen $PORT default_server backlog=4096;
       location / {
+        auth_basic           "Restricted";
+        auth_basic_user_file $AUTH;
+
         root $VOLUME;
         disable_symlinks off;
 
