@@ -127,10 +127,18 @@ func needs_rebalance(volumes []string, kvolumes []string) bool {
 }
 
 
+func set_auth_header(req *http.Request, authtoken string) *http.Request{
+  if authtoken != "" {
+      req.Header.Set("Authorization", authtoken)
+  }
+  return req
+}
+
 // *** Remote Access Functions ***
 
-func remote_delete(remote string) error {
+func remote_delete(remote string, authtoken string) error {
   req, err := http.NewRequest("DELETE", remote, nil)
+  req = set_auth_header(req, authtoken)
   if err != nil {
     return err
   }
@@ -145,8 +153,9 @@ func remote_delete(remote string) error {
   return nil
 }
 
-func remote_put(remote string, length int64, body io.Reader) error {
+func remote_put(remote string, length int64, body io.Reader, authtoken string) error {
   req, err := http.NewRequest("PUT", remote, body)
+  req = set_auth_header(req, authtoken)
   if err != nil {
     return err
   }
@@ -162,8 +171,11 @@ func remote_put(remote string, length int64, body io.Reader) error {
   return nil
 }
 
-func remote_get(remote string) (string, error) {
-  resp, err := http.Get(remote)
+func remote_get(remote string, authtoken string) (string, error) {
+  req, err := http.NewRequest("GET", remote, nil)
+  req = set_auth_header(req, authtoken)
+  resp, err := http.DefaultClient.Do(req)
+
   if err != nil {
     return "", err
   }
@@ -178,8 +190,9 @@ func remote_get(remote string) (string, error) {
   return string(body), nil
 }
 
-func remote_head(remote string) bool {
+func remote_head(remote string, authtoken string) bool {
   req, err := http.NewRequest("HEAD", remote, nil)
+  req = set_auth_header(req, authtoken)
   if err != nil {
     return false
   }
@@ -190,4 +203,3 @@ func remote_head(remote string) bool {
   defer resp.Body.Close()
   return resp.StatusCode == 200
 }
-

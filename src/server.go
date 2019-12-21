@@ -11,6 +11,7 @@ import (
   "net/http"
   "encoding/json"
   "github.com/syndtr/goleveldb/leveldb/util"
+  "encoding/base64"
 )
 
 // *** Master Server ***
@@ -76,8 +77,59 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
+func (a *App) GetAuthToken(w http.ResponseWriter, r *http.Request) string {
+  var authtoken string
+  if a.htpasswdfile != nil {
+    authtoken = r.Header.Get("Authorization")
+    a.CheckAuthorization(w, r, authtoken)
+  }
+  return authtoken
+}
+
+func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request, authtoken string) {
+  if authtoken != "" {
+    authString := strings.Split(authtoken, "Basic ")[1]
+    sDec, _ := base64.StdEncoding.DecodeString(authString)
+    splitauth := strings.Split(string(sDec), ":")
+    username := splitauth[0]
+    password := splitauth[1]
+    if !a.htpasswdfile.Match(username, password) {
+      fmt.Println("invalid authorization")
+      w.WriteHeader(401)
+      return
+    }
+  } else {
+    fmt.Println("no authorization header")
+    w.WriteHeader(401)
+    return
+  }
+}
+
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
+
+  // Check if basic authentification is received
+  authtoken := a.GetAuthToken(w, r)
+  // var authtoken string
+  // if a.htpasswdfile != nil {
+  //   authtoken = r.Header.Get("Authorization")
+  //   if authtoken != "" {
+  //     authString := strings.Split(authtoken, "Basic ")[1]
+  //     sDec, _ := base64.StdEncoding.DecodeString(authString)
+  //     splitauth := strings.Split(string(sDec), ":")
+  //     username := splitauth[0]
+  //     password := splitauth[1]
+  //     if !a.htpasswdfile.Match(username, password) {
+  //       fmt.Println("invalid authorization")
+  //       w.WriteHeader(401)
+  //       return
+  //     }
+  //   } else {
+  //     fmt.Println("no authorization header")
+  //     w.WriteHeader(401)
+  //     return
+  //   }
+  // }
 
   // this is a list query
   if len(r.URL.RawQuery) > 0 {
@@ -124,7 +176,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       good := false
       for _, vn := range rand.Perm(len(rec.rvolumes)) {
         remote = fmt.Sprintf("http://%s%s", rec.rvolumes[vn], key2path(key))
-        if remote_head(remote) {
+        if remote_head(remote, authtoken) {
           good = true
           break
         }
@@ -174,7 +226,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         body = bytes.NewReader(buf.Bytes())
       }
       remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-      if remote_put(remote, bodylen, body) != nil {
+      if remote_put(remote, bodylen, body, authtoken) != nil {
         // we assume the remote wrote nothing if it failed
         fmt.Printf("replica %d write failed: %s\n", i, remote)
         w.WriteHeader(500)
@@ -220,7 +272,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       delete_error := false
       for _, volume := range rec.rvolumes {
         remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
-        if remote_delete(remote) != nil {
+        if remote_delete(remote, authtoken) != nil {
           // if this fails, it's possible to get an orphan file
           // but i'm not really sure what else to do?
           delete_error = true
@@ -247,7 +299,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
     rbreq := RebalanceRequest{ key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
-    if !rebalance(a, rbreq) {
+    if !rebalance(a, rbreq, authtoken) {
       w.WriteHeader(400)
       return
     }
@@ -256,4 +308,3 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(204)
   }
 }
-

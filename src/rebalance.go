@@ -12,13 +12,13 @@ type RebalanceRequest struct {
   kvolumes []string
 }
 
-func rebalance(a *App, req RebalanceRequest) bool {
+func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
   kp := key2path(req.key)
 
   // find the volumes that are real
   rvolumes := make([]string, 0)
   for _, rv := range req.volumes {
-    if remote_head(fmt.Sprintf("http://%s%s", rv, kp)) {
+    if remote_head(fmt.Sprintf("http://%s%s", rv, kp), authtoken) {
       rvolumes = append(rvolumes, rv)
     }
   }
@@ -39,7 +39,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
   remote_from := fmt.Sprintf("http://%s%s", rvolumes[0], kp)
 
   // read
-  ss, err := remote_get(remote_from)
+  ss, err := remote_get(remote_from, authtoken)
   if err != nil {
     fmt.Println("get error", err, remote_from)
     return false
@@ -58,7 +58,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
     if needs_write {
       remote_to := fmt.Sprintf("http://%s%s", v, kp)
       // write
-      if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
+      if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss), authtoken); err != nil {
         fmt.Println("put error", err, remote_to)
         return false
       }
@@ -83,7 +83,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
     }
     if needs_delete {
       remote_del := fmt.Sprintf("http://%s%s", v2, kp)
-      if err := remote_delete(remote_del); err != nil {
+      if err := remote_delete(remote_del, authtoken); err != nil {
         fmt.Println("delete error", err, remote_del)
         delete_error = true
       }
@@ -98,13 +98,15 @@ func rebalance(a *App, req RebalanceRequest) bool {
 func (a *App) Rebalance() {
   fmt.Println("rebalancing to", a.volumes)
 
+  authtoken := "thisisatest"
+
   var wg sync.WaitGroup
   reqs := make(chan RebalanceRequest, 20000)
 
   for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
-        rebalance(a, req)
+        rebalance(a, req, authtoken)
         wg.Done()
       }
     }()
@@ -127,4 +129,3 @@ func (a *App) Rebalance() {
 
   wg.Wait()
 }
-

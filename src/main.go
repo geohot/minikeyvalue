@@ -9,6 +9,7 @@ import (
   "fmt"
   "strings"
   "github.com/syndtr/goleveldb/leveldb"
+  "github.com/tg123/go-htpasswd"
 )
 
 // *** App struct and methods ***
@@ -24,6 +25,7 @@ type App struct {
   replicas int
   subvolumes int
   protect bool
+  htpasswdfile *htpasswd.File
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -66,7 +68,15 @@ func main() {
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes, disks per machine")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
+  auth := flag.String("auth", "", "Path for basic auth file")
   flag.Parse()
+
+  // If basic authentification activated
+  var htpasswdfile *htpasswd.File
+  if *auth != ""{
+    htpasswdfile, _ = htpasswd.New(*auth, htpasswd.DefaultSystems, nil)
+    fmt.Println("Basic authentification activated and htpasswd file loaded")
+  }
 
   volumes := strings.Split(*pvolumes, ",")
   command := flag.Arg(0)
@@ -99,6 +109,7 @@ func main() {
     replicas: *replicas,
     subvolumes: *subvolumes,
     protect: *protect,
+    htpasswdfile: htpasswdfile,
   }
 
   if command == "server" {
@@ -109,4 +120,3 @@ func main() {
     a.Rebalance()
   }
 }
-
