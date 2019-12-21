@@ -50,7 +50,7 @@ curl -v -L -X DELETE localhost:3000/wehave
 curl -v -L -X UNLINK localhost:3000/wehave
 
 # list keys starting with "we"
-curl -v -L localhost:3000/we?list
+curl -v -L "localhost:3000/we?list"
 
 # list unlinked keys ripe for DELETE
 curl -v -L localhost:3000/?unlinked
