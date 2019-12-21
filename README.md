@@ -66,21 +66,24 @@ curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 
 ```
 Usage: ./mkv <server, rebuild, rebalance>
-
+  -auth string
+    	Path for basic auth file
   -db string
-        Path to leveldb
+    	Path to leveldb
   -fallback string
-        Fallback server for missing keys
+    	Fallback server for missing keys
   -port int
-        Port for the server to listen on (default 3000)
+    	Port for the server to listen on (default 3000)
   -protect
-        Force UNLINK before DELETE
+    	Force UNLINK before DELETE
   -replicas int
-        Amount of replicas to make of the data (default 3)
+    	Amount of replicas to make of the data (default 3)
   -subvolumes int
-        Amount of subvolumes, disks per machine (default 10)
+    	Amount of subvolumes, disks per machine (default 10)
+  -userpass string
+    	username:password for rebalance and rebuild with auth
   -volumes string
-        Volumes to use for storage, comma separated
+    	Volumes to use for storage, comma separated
 ```
 
 ### Rebalancing (to change the amount of volume servers)
