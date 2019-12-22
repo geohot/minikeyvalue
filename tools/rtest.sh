@@ -25,3 +25,4 @@ go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 # rebuild and compare the database
 ./mkv $USERPASS -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB2 rebuild
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB2
+
