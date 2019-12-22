@@ -16,7 +16,13 @@ logging.basicConfig(format='%(name)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-basicauth_bool = "USERPASS" in os.environ
+authstring = os.environ.get('USERPASS')
+if authstring is not None:
+    b64Val = base64.b64encode(bytes(authstring, "utf-8")).decode("ascii")
+    headers = {"Authorization": "Basic %s" % b64Val}
+else:
+    headers = {}
+
 
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
@@ -24,104 +30,104 @@ class TestMiniKeyValue(unittest.TestCase):
   def get_fresh_key(self):
     return b"http://localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
+  # handle 302 manually https://github.com/psf/requests/issues/2949
+  def get_handle_302(self, key, headers):
+    r = requests.get(key, headers=headers, allow_redirects=False)
+    if r.status_code == 302:
+      r = requests.get(r.headers['Location'], headers=headers, allow_redirects=False)
+    return r
+
   def test_getputdelete(self):
     key = self.get_fresh_key()
 
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.get(key)
+    r = self.get_handle_302(key, headers=headers)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.text, "onyou")
 
-    r = requests.delete(key)
+    r = requests.delete(key, headers=headers)
     self.assertEqual(r.status_code, 204)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_deleteworks(self):
     key = self.get_fresh_key()
 
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.delete(key)
+    r = requests.delete(key, headers=headers)
     self.assertEqual(r.status_code, 204)
 
-    r = requests.get(key)
+    r = self.get_handle_302(key, headers=headers)
     self.assertEqual(r.status_code, 404)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_doubledelete(self):
     key = self.get_fresh_key()
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.delete(key)
+    r = requests.delete(key, headers=headers)
     self.assertEqual(r.status_code, 204)
 
-    r = requests.delete(key)
+    r = requests.delete(key, headers=headers)
     self.assertNotEqual(r.status_code, 204)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_doubleput(self):
     key = self.get_fresh_key()
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertNotEqual(r.status_code, 201)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_doubleputwdelete(self):
     key = self.get_fresh_key()
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.delete(key)
+    r = requests.delete(key, headers=headers)
     self.assertEqual(r.status_code, 204)
 
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_10keys(self):
     keys = [self.get_fresh_key() for i in range(10)]
 
     for k in keys:
-      r = requests.put(k, data=hashlib.md5(k).hexdigest())
+      r = requests.put(k, data=hashlib.md5(k).hexdigest(), headers=headers)
       self.assertEqual(r.status_code, 201)
 
     for k in keys:
-      r = requests.get(k)
+      r = self.get_handle_302(k, headers=headers)
       self.assertEqual(r.status_code, 200)
       self.assertEqual(r.text, hashlib.md5(k).hexdigest())
 
     for k in keys:
-      r = requests.delete(k)
+      r = requests.delete(k, headers=headers)
       self.assertEqual(r.status_code, 204)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_range_request(self):
     key = self.get_fresh_key()
-    r = requests.put(key, data="onyou")
+    r = requests.put(key, data="onyou", headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.get(key, headers={"Range": "bytes=2-5"})
+    headerstemp = headers
+    headerstemp['Range'] = "bytes=2-5"
+    r = self.get_handle_302(key, headers=headerstemp)
     self.assertEqual(r.status_code, 206)
     self.assertEqual(r.text, "you")
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_nonexistent_key(self):
     key = self.get_fresh_key()
-    r = requests.get(key)
+    r = self.get_handle_302(key, headers=headers)
     self.assertEqual(r.status_code, 404)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_head_request(self):
     # head not exist
     key = self.get_fresh_key()
-    r = requests.head(key, allow_redirects=True)
+    r = requests.head(key, allow_redirects=True, headers=headers)
     self.assertEqual(r.status_code, 404)
     # no redirect, content length should be zero
     self.assertEqual(int(r.headers['content-length']), 0)
@@ -129,51 +135,49 @@ class TestMiniKeyValue(unittest.TestCase):
     # head exist
     key = self.get_fresh_key()
     data = "onyou"
-    r = requests.put(key, data=data)
+    r = requests.put(key, data=data, headers=headers)
     self.assertEqual(r.status_code, 201)
-    r = requests.head(key, allow_redirects=True)
+    r = requests.head(key, allow_redirects=False, headers=headers)
+    if r.status_code == 302:
+      r = requests.head(r.headers['Location'], headers=headers, allow_redirects=False)
     self.assertEqual(r.status_code, 200)
     # redirect, content length should be size of data
     self.assertEqual(int(r.headers['content-length']), len(data))
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_large_key(self):
     key = self.get_fresh_key()
 
     data = b"a"*(16*1024*1024)
 
-    r = requests.put(key, data=data)
+    r = requests.put(key, data=data, headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.get(key)
+    r = self.get_handle_302(key, headers=headers)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.content, data)
 
-    r = requests.delete(key)
+    r = requests.delete(key, headers=headers)
     self.assertEqual(r.status_code, 204)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_json_list(self):
     key = self.get_fresh_key()
     data = "eh"
-    r = requests.put(key+b"1", data=data)
+    r = requests.put(key+b"1", data=data, headers=headers)
     self.assertEqual(r.status_code, 201)
-    r = requests.put(key+b"2", data=data)
+    r = requests.put(key+b"2", data=data, headers=headers)
     self.assertEqual(r.status_code, 201)
 
-    r = requests.get(key+b"?list")
+    r = self.get_handle_302(key+b"?list", headers=headers)
     self.assertEqual(r.status_code, 200)
     bkey = key.decode('utf-8')
     bkey = "/"+bkey.split("/")[-1]
     self.assertEqual(r.json(), {"next": "", "keys": [bkey+"1", bkey+"2"]})
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_json_list_null(self):
-    r = requests.get(self.get_fresh_key()+b"/DOES_NOT_EXIST?list")
+    r = self.get_handle_302(self.get_fresh_key()+b"/DOES_NOT_EXIST?list", headers=headers)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.json(), {"next": "", "keys": []})
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_json_list_limit(self):
     prefix = self.get_fresh_key()
     keys = []
@@ -181,68 +185,46 @@ class TestMiniKeyValue(unittest.TestCase):
     limit = 10
     for i in range(limit+2):
       key = prefix+str(i).encode()
-      r = requests.put(key, data=data)
+      r = requests.put(key, data=data, headers=headers)
       self.assertEqual(r.status_code, 201)
       keys.append("/"+key.decode().split("/")[-1])
     # leveldb is sorted alphabetically
     keys = sorted(keys)
     # should return first page
-    r = requests.get(prefix+b"?list&limit="+str(limit).encode())
+    r = self.get_handle_302(prefix+b"?list&limit="+str(limit).encode(), headers=headers)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.json(), {"next": keys[limit], "keys": keys[:limit]})
     start = quote_plus(r.json()["next"]).encode()
     # should return last page
-    r = requests.get(prefix+b"?list&limit="+str(limit).encode()+b"&start="+start)
+    r = self.get_handle_302(prefix+b"?list&limit="+str(limit).encode()+b"&start="+start, headers=headers)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.json(), {"next": "", "keys": keys[limit:]})
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_noemptykey(self):
     key = self.get_fresh_key()
-    r = requests.put(key, data="")
+    r = requests.put(key, data="", headers=headers)
     self.assertEqual(r.status_code, 411)
 
-  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_content_hash(self):
-    for i in range(100):
-      key = self.get_fresh_key()
-      r = requests.put(key, data=key)
-      self.assertEqual(r.status_code, 201)
-
-      r = requests.head(key, allow_redirects=False)
-      self.assertEqual(r.headers['Content-Md5'], hashlib.md5(key).hexdigest())
-
-  @unittest.skipIf(not basicauth_bool, "not tested without basicauth")
-  def test_basicauth_getputdelete(self):
-    authstring = os.environ.get('USERPASS')
-    b64Val = base64.b64encode(bytes(authstring, "utf-8")).decode("ascii")
-    headers = {"Authorization": "Basic %s" % b64Val}
-
-    key = self.get_fresh_key()
-    r = requests.put(key, data="onyou")
-    self.assertEqual(r.status_code, 401)
-    r = requests.put(key, data="onyou", headers=headers)
-    self.assertEqual(r.status_code, 201)
-
-    r = requests.get(key)
-    self.assertEqual(r.status_code, 401)
-    # deal with safety issues of requests (headers get stripped on redirection)
-    initial_response = requests.get(key, headers=headers, allow_redirects=False)
-    if initial_response.status_code == 302:
-        r = requests.get(initial_response.headers['Location'], headers=headers, allow_redirects=False)
-    self.assertEqual(r.status_code, 200)
-    self.assertEqual(r.text, "onyou")
-
-    # r = requests.delete(key)
-    # self.assertEqual(r.status_code, 401)
-    r = requests.delete(key, headers=headers)
-    self.assertEqual(r.status_code, 204)
-
-    # upload some objects to test rebuild and rebalance
     for i in range(100):
       key = self.get_fresh_key()
       r = requests.put(key, data=key, headers=headers)
       self.assertEqual(r.status_code, 201)
+
+      r = requests.head(key, allow_redirects=False, headers=headers)
+      self.assertEqual(r.headers['Content-Md5'], hashlib.md5(key).hexdigest())
+
+  @unittest.skipIf(not authstring, "skip when NOT using basicauth")
+  def test_basicauth_getputdelete(self):
+    key = self.get_fresh_key()
+    r = requests.put(key, data="onyou")
+    self.assertEqual(r.status_code, 401)
+
+    r = self.get_handle_302(key, headers={})
+    self.assertEqual(r.status_code, 401)
+
+    r = requests.delete(key)
+    self.assertEqual(r.status_code, 401)
 
 
 if __name__ == '__main__':
