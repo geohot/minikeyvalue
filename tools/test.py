@@ -132,7 +132,6 @@ class TestMiniKeyValue(unittest.TestCase):
     data = "onyou"
     r = requests.put(key, data=data)
     self.assertEqual(r.status_code, 201)
-
     r = requests.head(key, allow_redirects=False)
     if r.status_code == 302:
       r = requests.head(r.headers['Location'], allow_redirects=False)
