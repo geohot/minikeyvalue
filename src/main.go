@@ -72,11 +72,17 @@ func main() {
   userpass := flag.String("userpass", "", "username:password for rebalance and rebuild with auth")
   flag.Parse()
 
-  // If basic authentification activated
+  // if basic authentification activated
   var htpasswdfile *htpasswd.File
   if *auth != "" {
     htpasswdfile, _ = htpasswd.New(*auth, htpasswd.DefaultSystems, nil)
     fmt.Println("Basic authentification activated and htpasswd file loaded")
+  }
+  // rebuild of rebalance with basiauth activated on nginx
+  var userpassValue string
+  if *userpass != "" {
+    userpassValue = *userpass
+    userpassValue = userpassValue+"@"
   }
 
   volumes := strings.Split(*pvolumes, ",")
@@ -113,12 +119,6 @@ func main() {
     htpasswdfile: htpasswdfile,
   }
 
-  var userpassValue string
-  if *userpass != "" {
-    userpassValue = *userpass
-    userpassValue = userpassValue+"@"
-  }
-
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
   } else if command == "rebuild" {
@@ -127,4 +127,3 @@ func main() {
     a.Rebalance(userpassValue)
   }
 }
-

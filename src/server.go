@@ -84,7 +84,9 @@ func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request) (string
     if authtoken != "" {
       authstringb, _ := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
       authstring = string(authstringb)
-      if !a.htpasswdfile.Match(strings.Split(authstring, ":")[0], strings.Split(authstring, ":")[1]) {
+      username := strings.Split(authstring, ":")[0]
+      password := strings.Split(authstring, ":")[1]
+      if !a.htpasswdfile.Match(username, password) {
         w.WriteHeader(401)
         return authstring, false
       }
@@ -100,7 +102,7 @@ func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request) (string
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
-  // Check if basic authentification received
+  // check if user is authorized
   authstring, authorized := a.CheckAuthorization(w, r)
   if !authorized {
     return
@@ -283,4 +285,3 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(204)
   }
 }
-
