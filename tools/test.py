@@ -18,6 +18,8 @@ logger.setLevel(logging.DEBUG)
 authstring = os.environ.get('USERPASS')
 if authstring is not None:
   authstring = authstring + "@"
+else:
+  authstring = ""
 
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
