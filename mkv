@@ -2,3 +2,4 @@
 go get github.com/syndtr/goleveldb/leveldb
 go get github.com/tg123/go-htpasswd
 go run src/main.go src/lib.go src/server.go src/rebalance.go src/rebuild.go $@
+

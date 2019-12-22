@@ -10,3 +10,4 @@ script:
   - docker run --rm --hostname localhost minikeyvalue bash -c "go test -v src/lib_test.go src/lib.go"
   - docker run --rm --hostname localhost minikeyvalue bash -c "(./tools/bringup.sh &) && ./tools/test.py && go run tools/thrasher.go && ./tools/rtest.sh"
   - docker run --rm -e USERPASS=admin:thisisatest --hostname localhost minikeyvalue bash -c "(./tools/bringup.sh &) && ./tools/test.py && ./tools/rtest.sh"
+
