@@ -233,8 +233,8 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.text, "onyou")
 
-    # r = requests.delete(key)
-    # self.assertEqual(r.status_code, 401)
+    r = requests.delete(key)
+    self.assertEqual(r.status_code, 401)
     r = requests.delete(key, headers=headers)
     self.assertEqual(r.status_code, 204)
 
