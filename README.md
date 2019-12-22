@@ -50,10 +50,10 @@ curl -v -L -X DELETE localhost:3000/wehave
 curl -v -L -X UNLINK localhost:3000/wehave
 
 # list keys starting with "we"
-curl -v -L localhost:3000/we?list
+curl -v -L "localhost:3000/we?list"
 
 # list unlinked keys ripe for DELETE
-curl -v -L localhost:3000/?unlinked
+curl -v -L "localhost:3000/?unlinked"
 
 # put file in key "file.txt"
 curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt
@@ -90,13 +90,13 @@ Usage: ./mkv <server, rebuild, rebalance>
 
 ```
 # must shut down master first, since LevelDB can only be accessed by one process
-./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdb/ rebalance
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ rebalance
 ```
 
 ### Rebuilding (to regenerate the LevelDB)
 
 ```
-./mkv -volumes localhost:3001,localhost:3002 -db /tmp/indexdbalt/ rebuild
+./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdbalt/ rebuild
 ```
 
 ### Performance
@@ -105,7 +105,7 @@ Usage: ./mkv <server, rebuild, rebalance>
 # Fetching non-existent key: 116338 req/sec
 wrk -t2 -c100 -d10s http://localhost:3000/key
 
-# go run thrasher.go lib.go
+# go run thrasher.go
 starting thrasher
 10000 write/read/delete in 2.620922675s
 thats 3815.40/sec
