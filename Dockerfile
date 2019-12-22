@@ -12,7 +12,8 @@ RUN apt-get update && \
     libffi-dev \
     nginx \
     golang \
-    git && \
+    git \
+    apache2-utils && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -27,3 +28,5 @@ COPY mkv volume mkv/
 COPY src/*.go mkv/src/
 COPY tools/* mkv/tools/
 WORKDIR /mkv
+
+RUN htpasswd -b -c .htpasswd admin thisisatest && mv .htpasswd /etc/nginx

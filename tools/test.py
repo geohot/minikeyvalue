@@ -5,6 +5,7 @@ import hashlib
 import binascii
 import unittest
 import requests
+import base64
 from urllib.parse import quote_plus
 import time
 import timeit
@@ -15,12 +16,15 @@ logging.basicConfig(format='%(name)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+basicauth_bool = "USERPASS" in os.environ
+
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
-  
+
   def get_fresh_key(self):
     return b"http://localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_getputdelete(self):
     key = self.get_fresh_key()
 
@@ -34,6 +38,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.delete(key)
     self.assertEqual(r.status_code, 204)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_deleteworks(self):
     key = self.get_fresh_key()
 
@@ -46,6 +51,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.get(key)
     self.assertEqual(r.status_code, 404)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_doubledelete(self):
     key = self.get_fresh_key()
     r = requests.put(key, data="onyou")
@@ -57,6 +63,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.delete(key)
     self.assertNotEqual(r.status_code, 204)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_doubleput(self):
     key = self.get_fresh_key()
     r = requests.put(key, data="onyou")
@@ -65,6 +72,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertNotEqual(r.status_code, 201)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_doubleputwdelete(self):
     key = self.get_fresh_key()
     r = requests.put(key, data="onyou")
@@ -76,6 +84,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertEqual(r.status_code, 201)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_10keys(self):
     keys = [self.get_fresh_key() for i in range(10)]
 
@@ -92,6 +101,7 @@ class TestMiniKeyValue(unittest.TestCase):
       r = requests.delete(k)
       self.assertEqual(r.status_code, 204)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_range_request(self):
     key = self.get_fresh_key()
     r = requests.put(key, data="onyou")
@@ -101,11 +111,13 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 206)
     self.assertEqual(r.text, "you")
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_nonexistent_key(self):
     key = self.get_fresh_key()
     r = requests.get(key)
     self.assertEqual(r.status_code, 404)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_head_request(self):
     # head not exist
     key = self.get_fresh_key()
@@ -124,6 +136,7 @@ class TestMiniKeyValue(unittest.TestCase):
     # redirect, content length should be size of data
     self.assertEqual(int(r.headers['content-length']), len(data))
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_large_key(self):
     key = self.get_fresh_key()
 
@@ -139,6 +152,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.delete(key)
     self.assertEqual(r.status_code, 204)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_json_list(self):
     key = self.get_fresh_key()
     data = "eh"
@@ -153,11 +167,13 @@ class TestMiniKeyValue(unittest.TestCase):
     bkey = "/"+bkey.split("/")[-1]
     self.assertEqual(r.json(), {"next": "", "keys": [bkey+"1", bkey+"2"]})
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_json_list_null(self):
     r = requests.get(self.get_fresh_key()+b"/DOES_NOT_EXIST?list")
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.json(), {"next": "", "keys": []})
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_json_list_limit(self):
     prefix = self.get_fresh_key()
     keys = []
@@ -180,11 +196,13 @@ class TestMiniKeyValue(unittest.TestCase):
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.json(), {"next": "", "keys": keys[limit:]})
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_noemptykey(self):
     key = self.get_fresh_key()
     r = requests.put(key, data="")
     self.assertEqual(r.status_code, 411)
 
+  @unittest.skipIf(basicauth_bool, "not tested in basicauth")
   def test_content_hash(self):
     for i in range(100):
       key = self.get_fresh_key()
@@ -193,6 +211,39 @@ class TestMiniKeyValue(unittest.TestCase):
 
       r = requests.head(key, allow_redirects=False)
       self.assertEqual(r.headers['Content-Md5'], hashlib.md5(key).hexdigest())
+
+  @unittest.skipIf(not basicauth_bool, "not tested without basicauth")
+  def test_basicauth_getputdelete(self):
+    authstring = os.environ.get('USERPASS')
+    b64Val = base64.b64encode(bytes(authstring, "utf-8")).decode("ascii")
+    headers = {"Authorization": "Basic %s" % b64Val}
+
+    key = self.get_fresh_key()
+    r = requests.put(key, data="onyou")
+    self.assertEqual(r.status_code, 401)
+    r = requests.put(key, data="onyou", headers=headers)
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key)
+    self.assertEqual(r.status_code, 401)
+    # deal with safety issues of requests (headers get stripped on redirection)
+    initial_response = requests.get(key, headers=headers, allow_redirects=False)
+    if initial_response.status_code == 302:
+        r = requests.get(initial_response.headers['Location'], headers=headers, allow_redirects=False)
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.text, "onyou")
+
+    # r = requests.delete(key)
+    # self.assertEqual(r.status_code, 401)
+    r = requests.delete(key, headers=headers)
+    self.assertEqual(r.status_code, 204)
+
+    # upload some objects to test rebuild and rebalance
+    for i in range(100):
+      key = self.get_fresh_key()
+      r = requests.put(key, data=key, headers=headers)
+      self.assertEqual(r.status_code, 201)
+
 
 if __name__ == '__main__':
   # wait for servers
@@ -207,6 +258,5 @@ if __name__ == '__main__':
         time.sleep(0.5)
         continue
       print("waiting for servers")
-  
-  unittest.main()
 
+  unittest.main()
