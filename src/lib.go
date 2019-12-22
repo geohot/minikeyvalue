@@ -190,3 +190,4 @@ func remote_head(remote string) bool {
   defer resp.Body.Close()
   return resp.StatusCode == 200
 }
+
