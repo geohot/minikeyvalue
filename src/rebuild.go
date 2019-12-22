@@ -22,7 +22,7 @@ type RebuildRequest struct {
 }
 
 func get_files(url string) []File {
-  // fmt.Println(url)
+  //fmt.Println(url)
   var files []File
   dat, err := remote_get(url)
   if err != nil {
