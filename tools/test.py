@@ -23,7 +23,6 @@ if authstring is not None:
 else:
     headers = {}
 
-
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
 
@@ -226,7 +225,6 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.delete(key)
     self.assertEqual(r.status_code, 401)
 
-
 if __name__ == '__main__':
   # wait for servers
   for port in range(3000,3006):
@@ -240,5 +238,5 @@ if __name__ == '__main__':
         time.sleep(0.5)
         continue
       print("waiting for servers")
-
+  
   unittest.main()
