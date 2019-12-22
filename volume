@@ -76,3 +76,4 @@ http {
 
 echo "starting nginx on $PORT"
 nginx -c $CONF -p $VOLUME/tmp
+
