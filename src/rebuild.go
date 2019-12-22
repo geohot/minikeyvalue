@@ -21,10 +21,10 @@ type RebuildRequest struct {
   url string
 }
 
-func get_files(url string, authtoken string) []File {
+func get_files(url string) []File {
   // fmt.Println(url)
   var files []File
-  dat, err := remote_get(url, authtoken)
+  dat, err := remote_get(url)
   if err != nil {
     fmt.Println("ugh", err)
     return files
@@ -103,7 +103,7 @@ func valid(a File) bool {
   return true
 }
 
-func (a *App) Rebuild(encodedb64 string) {
+func (a *App) Rebuild(userpass string) {
   fmt.Println("rebuilding on", a.volumes)
 
   // empty db
@@ -118,8 +118,7 @@ func (a *App) Rebuild(encodedb64 string) {
   for i := 0; i < 128; i++ {
     go func() {
       for req := range reqs {
-
-        files := get_files(req.url, encodedb64)
+        files := get_files(req.url)
         for _, f := range files {
           rebuild(a, req.vol, f.Name)
         }
@@ -128,13 +127,13 @@ func (a *App) Rebuild(encodedb64 string) {
     }()
   }
 
-  parse_volume := func(tvol string) {
-    for _, i := range get_files(fmt.Sprintf("http://%s/", tvol), encodedb64) {
+  parse_volume := func(tvol string, userpass string) {
+    for _, i := range get_files(fmt.Sprintf("http://%s%s/", userpass, tvol)) {
       if valid(i) {
-        for _, j := range get_files(fmt.Sprintf("http://%s/%s/", tvol, i.Name), encodedb64) {
+        for _, j := range get_files(fmt.Sprintf("http://%s%s/%s/", userpass, tvol, i.Name)) {
           if valid(j) {
             wg.Add(1)
-            url := fmt.Sprintf("http://%s/%s/%s/", tvol, i.Name, j.Name)
+            url := fmt.Sprintf("http://%s%s/%s/%s/", userpass, tvol, i.Name, j.Name)
             reqs <- RebuildRequest{tvol, url}
           }
         }
@@ -144,14 +143,14 @@ func (a *App) Rebuild(encodedb64 string) {
 
   for _, vol := range a.volumes {
     has_subvolumes := false
-    for _, f := range get_files(fmt.Sprintf("http://%s/", vol), encodedb64) {
+    for _, f := range get_files(fmt.Sprintf("http://%s%s/", userpass, vol)) {
       if len(f.Name) == 4 && strings.HasPrefix(f.Name, "sv") && f.Type == "directory" {
-        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name))
+        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name), userpass)
         has_subvolumes = true
       }
     }
     if !has_subvolumes {
-      parse_volume(vol)
+      parse_volume(vol, userpass)
     }
   }
 

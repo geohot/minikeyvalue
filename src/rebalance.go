@@ -12,13 +12,13 @@ type RebalanceRequest struct {
   kvolumes []string
 }
 
-func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
+func rebalance(a *App, req RebalanceRequest, userpass string) bool {
   kp := key2path(req.key)
 
   // find the volumes that are real
   rvolumes := make([]string, 0)
   for _, rv := range req.volumes {
-    if remote_head(fmt.Sprintf("http://%s%s", rv, kp), authtoken) {
+    if remote_head(fmt.Sprintf("http://%s%s%s", userpass, rv, kp)) {
       rvolumes = append(rvolumes, rv)
     }
   }
@@ -36,10 +36,10 @@ func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
   fmt.Println("rebalancing", string(req.key), "from", rvolumes, "to", req.kvolumes)
 
   // always read from the first one
-  remote_from := fmt.Sprintf("http://%s%s", rvolumes[0], kp)
+  remote_from := fmt.Sprintf("http://%s%s%s", userpass, rvolumes[0], kp)
 
   // read
-  ss, err := remote_get(remote_from, authtoken)
+  ss, err := remote_get(remote_from)
   if err != nil {
     fmt.Println("get error", err, remote_from)
     return false
@@ -56,9 +56,9 @@ func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
       }
     }
     if needs_write {
-      remote_to := fmt.Sprintf("http://%s%s", v, kp)
+      remote_to := fmt.Sprintf("http://%s%s%s", userpass, v, kp)
       // write
-      if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss), authtoken); err != nil {
+      if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
         fmt.Println("put error", err, remote_to)
         return false
       }
@@ -82,8 +82,8 @@ func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
       }
     }
     if needs_delete {
-      remote_del := fmt.Sprintf("http://%s%s", v2, kp)
-      if err := remote_delete(remote_del, authtoken); err != nil {
+      remote_del := fmt.Sprintf("http://%s%s%s", userpass, v2, kp)
+      if err := remote_delete(remote_del); err != nil {
         fmt.Println("delete error", err, remote_del)
         delete_error = true
       }
@@ -95,7 +95,7 @@ func rebalance(a *App, req RebalanceRequest, authtoken string) bool {
   return true
 }
 
-func (a *App) Rebalance(encodedb64 string) {
+func (a *App) Rebalance(userpass string) {
   fmt.Println("rebalancing to", a.volumes)
 
   var wg sync.WaitGroup
@@ -104,7 +104,7 @@ func (a *App) Rebalance(encodedb64 string) {
   for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
-        rebalance(a, req, encodedb64)
+        rebalance(a, req, userpass)
         wg.Done()
       }
     }()

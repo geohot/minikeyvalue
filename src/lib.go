@@ -127,19 +127,10 @@ func needs_rebalance(volumes []string, kvolumes []string) bool {
 }
 
 
-// set Authorization header if it was received
-func set_auth_header(req *http.Request, authtoken string) *http.Request{
-  if authtoken != "" {
-      req.Header.Set("Authorization", authtoken)
-  }
-  return req
-}
-
 // *** Remote Access Functions ***
 
-func remote_delete(remote string, authtoken string) error {
+func remote_delete(remote string) error {
   req, err := http.NewRequest("DELETE", remote, nil)
-  req = set_auth_header(req, authtoken)
   if err != nil {
     return err
   }
@@ -154,9 +145,8 @@ func remote_delete(remote string, authtoken string) error {
   return nil
 }
 
-func remote_put(remote string, length int64, body io.Reader, authtoken string) error {
+func remote_put(remote string, length int64, body io.Reader) error {
   req, err := http.NewRequest("PUT", remote, body)
-  req = set_auth_header(req, authtoken)
   if err != nil {
     return err
   }
@@ -172,11 +162,8 @@ func remote_put(remote string, length int64, body io.Reader, authtoken string) e
   return nil
 }
 
-func remote_get(remote string, authtoken string) (string, error) {
-  req, err := http.NewRequest("GET", remote, nil)
-  req = set_auth_header(req, authtoken)
-  resp, err := http.DefaultClient.Do(req)
-
+func remote_get(remote string) (string, error) {
+  resp, err := http.Get(remote)
   if err != nil {
     return "", err
   }
@@ -191,9 +178,8 @@ func remote_get(remote string, authtoken string) (string, error) {
   return string(body), nil
 }
 
-func remote_head(remote string, authtoken string) bool {
+func remote_head(remote string) bool {
   req, err := http.NewRequest("HEAD", remote, nil)
-  req = set_auth_header(req, authtoken)
   if err != nil {
     return false
   }

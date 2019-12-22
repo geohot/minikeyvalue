@@ -8,7 +8,6 @@ import (
   "net/http"
   "fmt"
   "strings"
-  "encoding/base64"
   "github.com/syndtr/goleveldb/leveldb"
   "github.com/tg123/go-htpasswd"
 )
@@ -114,18 +113,17 @@ func main() {
     htpasswdfile: htpasswdfile,
   }
 
+  var userpassValue string
+  if *userpass != "" {
+    userpassValue = *userpass
+    userpassValue = userpassValue+"@"
+  }
+
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
-  } else {
-    var encodedb64 string
-    if *userpass != "" {
-      encodedb64 = base64.StdEncoding.EncodeToString([]byte(*userpass))
-      encodedb64 = "Basic " + encodedb64
-    }
-    if command == "rebuild" {
-      a.Rebuild(encodedb64)
-    } else if command == "rebalance" {
-      a.Rebalance(encodedb64)
-    }
+  } else if command == "rebuild" {
+    a.Rebuild(userpassValue)
+  } else if command == "rebalance" {
+    a.Rebalance(userpassValue)
   }
 }

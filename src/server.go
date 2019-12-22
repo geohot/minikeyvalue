@@ -78,34 +78,30 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request) (string, bool) {
-  var authtoken string
+  var authstring string
   if a.htpasswdfile != nil {
-    authtoken = r.Header.Get("Authorization")
+    authtoken := r.Header.Get("Authorization")
     if authtoken != "" {
-      authString := strings.Split(authtoken, "Basic ")[1]
-      sDec, _ := base64.StdEncoding.DecodeString(authString)
-      splitauth := strings.Split(string(sDec), ":")
-      username := splitauth[0]
-      password := splitauth[1]
-      if !a.htpasswdfile.Match(username, password) {
-        fmt.Println("invalid authorization")
+      authstringb, _ := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
+      authstring = string(authstringb)
+      if !a.htpasswdfile.Match(strings.Split(authstring, ":")[0], strings.Split(authstring, ":")[1]) {
         w.WriteHeader(401)
-        return authtoken, false
+        return authstring, false
       }
+      authstring = authstring+"@"
     } else {
-      fmt.Println("no authorization header")
       w.WriteHeader(401)
-      return authtoken, false
+      return authstring, false
     }
   }
-  return authtoken, true
+  return authstring, true
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
   // Check if basic authentification received
-  authtoken, authorized := a.CheckAuthorization(w, r)
+  authstring, authorized := a.CheckAuthorization(w, r)
   if !authorized {
     return
   }
@@ -154,8 +150,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       // check the volume servers in a random order
       good := false
       for _, vn := range rand.Perm(len(rec.rvolumes)) {
-        remote = fmt.Sprintf("http://%s%s", rec.rvolumes[vn], key2path(key))
-        if remote_head(remote, authtoken) {
+        remote = fmt.Sprintf("http://%s%s%s", authstring, rec.rvolumes[vn], key2path(key))
+        if remote_head(remote) {
           good = true
           break
         }
@@ -204,8 +200,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         // if we have already read the contents into the TeeReader
         body = bytes.NewReader(buf.Bytes())
       }
-      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-      if remote_put(remote, bodylen, body, authtoken) != nil {
+      remote := fmt.Sprintf("http://%s%s%s", authstring, kvolumes[i], key2path(key))
+      if remote_put(remote, bodylen, body) != nil {
         // we assume the remote wrote nothing if it failed
         fmt.Printf("replica %d write failed: %s\n", i, remote)
         w.WriteHeader(500)
@@ -250,8 +246,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       // then remotely, if this is not an unlink
       delete_error := false
       for _, volume := range rec.rvolumes {
-        remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
-        if remote_delete(remote, authtoken) != nil {
+        remote := fmt.Sprintf("http://%s%s%s", authstring, volume, key2path(key))
+        if remote_delete(remote) != nil {
           // if this fails, it's possible to get an orphan file
           // but i'm not really sure what else to do?
           delete_error = true
@@ -278,7 +274,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
     rbreq := RebalanceRequest{ key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
-    if !rebalance(a, rbreq, authtoken) {
+    if !rebalance(a, rbreq, authstring) {
       w.WriteHeader(400)
       return
     }
