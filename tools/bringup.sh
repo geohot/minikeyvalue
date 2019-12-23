@@ -2,7 +2,7 @@
 #trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 kill $(pgrep -f nginx)
 
-[ "$USERPASS" = "" ] && AUTHSTR="" || AUTHSTR="-auth /etc/nginx/.htpasswd"
+[ "$AUTH" = "" ] && AUTHSTR="" || AUTHSTR="-auth /etc/nginx/.htpasswd"
 
 PORT=3001 ./volume /tmp/volume1/ &
 PORT=3002 ./volume /tmp/volume2/ &
