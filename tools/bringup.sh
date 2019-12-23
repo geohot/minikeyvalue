@@ -2,14 +2,7 @@
 #trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 kill $(pgrep -f nginx)
 
-if [ "$USERPASS" = "" ]
-then
-   export AUTH=""
-   export AUTHSTR=""
-else
-   export AUTH=/etc/nginx/.htpasswd
-   export AUTHSTR="-auth /etc/nginx/.htpasswd"
-fi
+[ "$USERPASS" = "" ] && AUTHSTR="" || AUTHSTR="-auth /etc/nginx/.htpasswd"
 
 PORT=3001 ./volume /tmp/volume1/ &
 PORT=3002 ./volume /tmp/volume2/ &
@@ -18,4 +11,3 @@ PORT=3004 ./volume /tmp/volume4/ &
 PORT=3005 ./volume /tmp/volume5/ &
 
 ./mkv $AUTHSTR -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db /tmp/indexdb/ server
-

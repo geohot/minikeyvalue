@@ -1,12 +1,7 @@
 #!/bin/bash
 ALTDB=/tmp/indexdbalt/
 ALTDB2=/tmp/indexdbalt2/
-if [ "$USERPASS" = "" ]
-then
-   USERPASS=""
-else
-   USERPASS="-userpass $USERPASS"
-fi
+[ "$USERPASS" = "" ] && USERPASS="" || USERPASS="-userpass $USERPASS"
 echo "rebuild and rebalance test"
 
 # take down main server (now leaves nginx running)
@@ -25,4 +20,3 @@ go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB
 # rebuild and compare the database
 ./mkv $USERPASS -volumes localhost:3001,localhost:3002,localhost:3003,localhost:3004,localhost:3005 -db $ALTDB2 rebuild
 go run tools/leveldb_compare.go /tmp/indexdb/ $ALTDB2
-
