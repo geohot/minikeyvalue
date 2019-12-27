@@ -277,7 +277,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
     rbreq := RebalanceRequest{ key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
-    if !rebalance(a, rbreq, authstring) {
+    if !rebalance(a, rbreq) {
       w.WriteHeader(400)
       return
     }
