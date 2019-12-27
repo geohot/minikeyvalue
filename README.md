@@ -34,6 +34,7 @@ PORT=3003 ./volume /tmp/volume3/
 ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
 
+
 ### Usage
 
 ```
@@ -67,8 +68,8 @@ curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 ```
 Usage: ./mkv <server, rebuild, rebalance>
 
-  -auth string
-    	Path for basic auth file
+  -basicauth
+    	Activate basic authorization
   -db string
         Path to leveldb
   -fallback string
@@ -82,7 +83,7 @@ Usage: ./mkv <server, rebuild, rebalance>
   -subvolumes int
         Amount of subvolumes, disks per machine (default 10)
   -userpass string
-    	username:password for rebalance and rebuild with auth
+    	username:password for rebalance and rebuild with basic authorization
   -volumes string
         Volumes to use for storage, comma separated
 ```
