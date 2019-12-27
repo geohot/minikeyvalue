@@ -23,10 +23,9 @@ ENV PATH ${PATH}:/mkv
 
 COPY requirements.txt mkv/requirements.txt
 RUN pip3 install --no-cache-dir -r mkv/requirements.txt
+RUN htpasswd -b -c .htpasswd admin thisisatest && mv .htpasswd /etc/nginx
 
 COPY mkv volume mkv/
 COPY src/*.go mkv/src/
 COPY tools/* mkv/tools/
 WORKDIR /mkv
-
-RUN htpasswd -b -c .htpasswd admin thisisatest && mv .htpasswd /etc/nginx
