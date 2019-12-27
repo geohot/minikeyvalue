@@ -9,7 +9,6 @@ import (
   "fmt"
   "strings"
   "github.com/syndtr/goleveldb/leveldb"
-  "github.com/tg123/go-htpasswd"
 )
 
 // *** App struct and methods ***
@@ -25,7 +24,8 @@ type App struct {
   replicas int
   subvolumes int
   protect bool
-  htpasswdfile *htpasswd.File
+  basicauth bool
+  userpass string
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -68,16 +68,10 @@ func main() {
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes, disks per machine")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
-  auth := flag.String("auth", "", "Path for basic auth file")
-  userpass := flag.String("userpass", "", "username:password for rebalance and rebuild with auth")
+  basicauth := flag.Bool("basicauth", false, "Activate basic authentification")
+  userpass := flag.String("userpass", "", "username:password for rebalance and rebuild with basic authentification")
   flag.Parse()
 
-  // if basic authentification activated
-  var htpasswdfile *htpasswd.File
-  if *auth != "" {
-    htpasswdfile, _ = htpasswd.New(*auth, htpasswd.DefaultSystems, nil)
-    fmt.Println("Basic authentification activated and htpasswd file loaded")
-  }
   // rebuild of rebalance with basiauth activated on nginx
   var userpassValue string
   if *userpass != "" {
@@ -116,15 +110,15 @@ func main() {
     replicas: *replicas,
     subvolumes: *subvolumes,
     protect: *protect,
-    htpasswdfile: htpasswdfile,
+    basicauth: *basicauth,
+    userpass: userpassValue,
   }
 
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
   } else if command == "rebuild" {
-    a.Rebuild(userpassValue)
+    a.Rebuild()
   } else if command == "rebalance" {
-    a.Rebalance(userpassValue)
+    a.Rebalance()
   }
 }
-

@@ -34,7 +34,6 @@ PORT=3003 ./volume /tmp/volume3/
 ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
 
-
 ### Usage
 
 ```
@@ -130,11 +129,11 @@ AUTH=/etc/nginx/.htpasswd PORT=3003 ./volume /tmp/volume3/
 
 ```
 # pass the .htpasswd to the -auth flag to serve with basic authentification
-./mkv -auth /etc/nginx/.htpasswd -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
+./mkv -basicauth -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 
 # in case of a rebuild or rebalance the user and password need to be passed with -userpass
-./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -userpass admin:thisisatest -db /tmp/indexdb/ rebalance
-./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -userpass admin:thisisatest -db /tmp/indexdbalt/ rebuild
+./mkv -userpass admin:thisisatest -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ rebalance
+./mkv -userpass admin:thisisatest -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdbalt/ rebuild
 ```
 
 ```

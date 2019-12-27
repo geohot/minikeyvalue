@@ -103,7 +103,7 @@ func valid(a File) bool {
   return true
 }
 
-func (a *App) Rebuild(userpass string) {
+func (a *App) Rebuild() {
   fmt.Println("rebuilding on", a.volumes)
 
   // empty db
@@ -143,18 +143,17 @@ func (a *App) Rebuild(userpass string) {
 
   for _, vol := range a.volumes {
     has_subvolumes := false
-    for _, f := range get_files(fmt.Sprintf("http://%s%s/", userpass, vol)) {
+    for _, f := range get_files(fmt.Sprintf("http://%s%s/", a.userpass, vol)) {
       if len(f.Name) == 4 && strings.HasPrefix(f.Name, "sv") && f.Type == "directory" {
-        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name), userpass)
+        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name), a.userpass)
         has_subvolumes = true
       }
     }
     if !has_subvolumes {
-      parse_volume(vol, userpass)
+      parse_volume(vol, a.userpass)
     }
   }
 
   close(reqs)
   wg.Wait()
 }
-

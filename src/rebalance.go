@@ -95,7 +95,7 @@ func rebalance(a *App, req RebalanceRequest, userpass string) bool {
   return true
 }
 
-func (a *App) Rebalance(userpass string) {
+func (a *App) Rebalance() {
   fmt.Println("rebalancing to", a.volumes)
 
   var wg sync.WaitGroup
@@ -104,7 +104,7 @@ func (a *App) Rebalance(userpass string) {
   for i := 0; i < 16; i++ {
     go func() {
       for req := range reqs {
-        rebalance(a, req, userpass)
+        rebalance(a, req, a.userpass)
         wg.Done()
       }
     }()
@@ -127,4 +127,3 @@ func (a *App) Rebalance(userpass string) {
 
   wg.Wait()
 }
-

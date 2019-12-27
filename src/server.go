@@ -77,23 +77,24 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (a *App) CheckAuthorization(w http.ResponseWriter, r *http.Request) (string, bool) {
+func (a *App) GetAuthorization(w http.ResponseWriter, r *http.Request) (string, bool) {
   var authstring string
-  if a.htpasswdfile != nil {
+  if a.basicauth != false {
     authtoken := r.Header.Get("Authorization")
     if authtoken != "" {
       authstringb, _ := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
       authstring = string(authstringb)
-      username := strings.Split(authstring, ":")[0]
-      password := strings.Split(authstring, ":")[1]
-      if !a.htpasswdfile.Match(username, password) {
-        w.WriteHeader(401)
+      authstring = authstring+"@"
+      remote := fmt.Sprintf("http://%s%s", authstring, a.volumes[rand.Intn(len(a.volumes))])
+      resp, err := http.Get(remote)
+      if err != nil {
+        w.WriteHeader(500)
         return authstring, false
       }
-      authstring = authstring+"@"
-    } else {
-      w.WriteHeader(401)
-      return authstring, false
+      if resp.StatusCode != 200 {
+        w.WriteHeader(resp.StatusCode)
+        return authstring, false
+      }
     }
   }
   return authstring, true
@@ -103,7 +104,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
   // check if user is authorized
-  authstring, authorized := a.CheckAuthorization(w, r)
+  authstring, authorized := a.GetAuthorization(w, r)
   if !authorized {
     return
   }
@@ -285,4 +286,3 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(204)
   }
 }
-
