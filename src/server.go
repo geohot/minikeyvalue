@@ -79,7 +79,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 
 func (a *App) GetAuthorization(w http.ResponseWriter, r *http.Request) (string, bool) {
   var authstring string
-  if a.basicauth != false {
+  if a.basicauth == false {
     authtoken := r.Header.Get("Authorization")
     if authtoken != "" {
       authstringb, _ := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
@@ -286,3 +286,4 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(204)
   }
 }
+
