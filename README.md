@@ -34,7 +34,6 @@ PORT=3003 ./volume /tmp/volume3/
 ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
 
-
 ### Usage
 
 ```
@@ -69,7 +68,7 @@ curl -v -L -o /path/to/local/file.txt localhost:3000/file.txt
 Usage: ./mkv <server, rebuild, rebalance>
 
   -basicauth
-    	Activate basic authorization
+        Activate basic authorization
   -db string
         Path to leveldb
   -fallback string
@@ -83,7 +82,7 @@ Usage: ./mkv <server, rebuild, rebalance>
   -subvolumes int
         Amount of subvolumes, disks per machine (default 10)
   -userpass string
-    	username:password for rebalance and rebuild with basic authorization
+        Rebuild/rebalance with basic authorization (-userpass username:password)
   -volumes string
         Volumes to use for storage, comma separated
 ```
@@ -115,11 +114,17 @@ thats 3815.40/sec
 
 ### Basic Authorization
 
+Basic authorization is implemented via a htpasswd file used on the nginx volumes.
+
+Generate a valid htpasswd file:
+
 ```
 # generate htpasswd file (using apache2-utils) and move it /etc/nginx
 htpasswd -b -c .htpasswd admin thisisatest
 mv .htpasswd /etc/nginx
 ```
+
+Configure nginx volumes with basic authorization via AUTH enviromental variable:
 
 ```
 # start nginx with the path of .htpasswd in AUTH enviromental variable
@@ -127,6 +132,8 @@ AUTH=/etc/nginx/.htpasswd PORT=3001 ./volume /tmp/volume1/
 AUTH=/etc/nginx/.htpasswd PORT=3002 ./volume /tmp/volume2/
 AUTH=/etc/nginx/.htpasswd PORT=3003 ./volume /tmp/volume3/
 ```
+
+To secure the go master server start `mkv` with `-basicauth` command
 
 ```
 # pass the .htpasswd to the -auth flag to serve with basic authentification
