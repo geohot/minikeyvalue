@@ -116,7 +116,7 @@ thats 3815.40/sec
 
 Basic authorization is implemented via a htpasswd file used on the nginx volumes.
 
-Generate a valid htpasswd file:
+Generate a valid htpasswd file using `apache2-utils`:
 
 ```
 # generate htpasswd file (using apache2-utils) and move it /etc/nginx
@@ -124,7 +124,7 @@ htpasswd -b -c .htpasswd admin thisisatest
 mv .htpasswd /etc/nginx
 ```
 
-Configure nginx volumes with basic authorization via AUTH enviromental variable:
+Configure nginx volumes with basic authorization via `AUTH` enviromental variable:
 
 ```
 # start nginx with the path of .htpasswd in AUTH enviromental variable
@@ -133,16 +133,20 @@ AUTH=/etc/nginx/.htpasswd PORT=3002 ./volume /tmp/volume2/
 AUTH=/etc/nginx/.htpasswd PORT=3003 ./volume /tmp/volume3/
 ```
 
-To secure the go master server start `mkv` with `-basicauth` command
+To secure the go master server start `mkv` with `-basicauth` command:
 
 ```
-# pass the .htpasswd to the -auth flag to serve with basic authentification
 ./mkv -basicauth -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
+```
 
-# in case of a rebuild or rebalance the user and password need to be passed with -userpass
+To rebuild or rebalance with basic authorization the user and password need to be passed with `-userpass`:
+
+```
 ./mkv -userpass admin:thisisatest -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ rebalance
 ./mkv -userpass admin:thisisatest -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdbalt/ rebuild
 ```
+
+Example of curl with basic authorization:
 
 ```
 # curl with --user <USER>:<PASSWORD>
