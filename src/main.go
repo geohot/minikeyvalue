@@ -68,8 +68,8 @@ func main() {
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes, disks per machine")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
-  basicauth := flag.Bool("basicauth", false, "Activate basic authentification")
-  userpass := flag.String("userpass", "", "username:password for rebalance and rebuild with basic authentification")
+  basicauth := flag.Bool("basicauth", false, "Activate basic authorization")
+  userpass := flag.String("userpass", "", "Rebuild/rebalance with basic authorization (-userpass username:password)")
   flag.Parse()
 
   // rebuild of rebalance with basiauth activated on nginx
