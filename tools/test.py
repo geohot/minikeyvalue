@@ -23,15 +23,17 @@ else:
 
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
-  
+
   def get_fresh_key(self):
     return b"http://"+str.encode(authstring)+b"localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
   # handle 302 manually https://github.com/psf/requests/issues/2949
-  def get_handle_302(self, key, headers={}):
-    r = requests.get(key, headers=headers, allow_redirects=False)
+  def handle_302(self, key, headers={}, req_type='GET'):
+    if req_type == 'GET': request_funcion = requests.get
+    if req_type == 'HEAD': request_funcion = requests.head
+    r = request_funcion(key, headers=headers, allow_redirects=False)
     if r.status_code == 302:
-      r = requests.get(r.headers['Location'], headers=headers, allow_redirects=False)
+      r = request_funcion(r.headers['Location'], headers=headers, allow_redirects=False)
     return r
 
   def test_getputdelete(self):
@@ -40,7 +42,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertEqual(r.status_code, 201)
 
-    r = self.get_handle_302(key)
+    r = self.handle_302(key, req_type='GET')
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.text, "onyou")
 
@@ -97,7 +99,7 @@ class TestMiniKeyValue(unittest.TestCase):
       self.assertEqual(r.status_code, 201)
 
     for k in keys:
-      r = self.get_handle_302(k)
+      r = self.handle_302(k, req_type='GET')
       self.assertEqual(r.status_code, 200)
       self.assertEqual(r.text, hashlib.md5(k).hexdigest())
 
@@ -110,7 +112,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertEqual(r.status_code, 201)
 
-    r = self.get_handle_302(key, headers={"Range": "bytes=2-5"})
+    r = self.handle_302(key, headers={"Range": "bytes=2-5"}, req_type='GET')
     self.assertEqual(r.status_code, 206)
     self.assertEqual(r.text, "you")
 
@@ -132,9 +134,7 @@ class TestMiniKeyValue(unittest.TestCase):
     data = "onyou"
     r = requests.put(key, data=data)
     self.assertEqual(r.status_code, 201)
-    r = requests.head(key, allow_redirects=False)
-    if r.status_code == 302:
-      r = requests.head(r.headers['Location'], allow_redirects=False)
+    r = self.handle_302(key, req_type='HEAD')
     self.assertEqual(r.status_code, 200)
     # redirect, content length should be size of data
     self.assertEqual(int(r.headers['content-length']), len(data))
@@ -147,7 +147,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data=data)
     self.assertEqual(r.status_code, 201)
 
-    r = self.get_handle_302(key)
+    r = self.handle_302(key, req_type='GET')
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.content, data)
 
@@ -222,6 +222,5 @@ if __name__ == '__main__':
         time.sleep(0.5)
         continue
       print("waiting for servers")
-  
-  unittest.main()
 
+  unittest.main()
