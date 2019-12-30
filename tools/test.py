@@ -23,7 +23,7 @@ else:
 
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
-
+  
   def get_fresh_key(self):
     return b"http://"+str.encode(authstring)+b"localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
