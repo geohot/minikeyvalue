@@ -72,11 +72,8 @@ func main() {
   userpass := flag.String("userpass", "", "Rebuild/rebalance with basic authorization (-userpass username:password)")
   flag.Parse()
 
-  var userpassValue string
-  if *userpass != "" {
-    userpassValue = *userpass
-    userpassValue = userpassValue+"@"
-  }
+  userpassvalue := *userpass
+  if userpassvalue != "" { userpassvalue = fmt.Sprintf("%s@", userpassvalue) }
 
   volumes := strings.Split(*pvolumes, ",")
   command := flag.Arg(0)
@@ -110,7 +107,7 @@ func main() {
     subvolumes: *subvolumes,
     protect: *protect,
     basicauth: *basicauth,
-    userpass: userpassValue,
+    userpass: userpassvalue,
   }
 
   if command == "server" {
@@ -121,4 +118,3 @@ func main() {
     a.Rebalance()
   }
 }
-

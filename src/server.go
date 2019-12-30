@@ -79,6 +79,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 
 func GetAuthorization(w http.ResponseWriter, r *http.Request, basicauth bool, volumes []string) (string, bool) {
   var authstring string
+  fmt.Println(volumes)
   if basicauth == true {
     authtoken := r.Header.Get("Authorization")
     if authtoken != "" {
@@ -87,10 +88,16 @@ func GetAuthorization(w http.ResponseWriter, r *http.Request, basicauth bool, vo
         w.WriteHeader(500)
         return "", false
       }
+      // authstring will be used outside this function
       authstring = string(authstringb)+"@"
       remote := fmt.Sprintf("http://%s%s", authstring, volumes[rand.Intn(len(volumes))])
       resp, err := http.Get(remote)
-      if resp.StatusCode != 200 {
+      if err != nil {
+        // There was an error on get
+        w.WriteHeader(500)
+        return authstring, false
+      } else if resp.StatusCode != 200 {
+        // Response was valid but different status code such has 401
         w.WriteHeader(resp.StatusCode)
         return authstring, false
       }
