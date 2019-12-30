@@ -25,7 +25,6 @@ type App struct {
   subvolumes int
   protect bool
   basicauth bool
-  userpass string
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -72,13 +71,6 @@ func main() {
   userpass := flag.String("userpass", "", "username:password for rebalance and rebuild with basic authentification")
   flag.Parse()
 
-  // rebuild of rebalance with basiauth activated on nginx
-  var userpassValue string
-  if *userpass != "" {
-    userpassValue = *userpass
-    userpassValue = userpassValue+"@"
-  }
-
   volumes := strings.Split(*pvolumes, ",")
   command := flag.Arg(0)
 
@@ -111,15 +103,20 @@ func main() {
     subvolumes: *subvolumes,
     protect: *protect,
     basicauth: *basicauth,
-    userpass: userpassValue,
   }
 
   if command == "server" {
     http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
-  } else if command == "rebuild" {
-    a.Rebuild()
-  } else if command == "rebalance" {
-    a.Rebalance()
+  } else {
+    if *userpass != "" {
+      for i := 0; i < len(a.volumes); i++ {
+        a.volumes[i] = fmt.Sprintf("%s@%s", *userpass, a.volumes[i])
+      }
+    }
+    if command == "rebuild" {
+      a.Rebuild()
+    } else if command == "rebalance" {
+      a.Rebalance()
+    }
   }
 }
-
