@@ -127,13 +127,13 @@ func (a *App) Rebuild() {
     }()
   }
 
-  parse_volume := func(tvol string) {
-    for _, i := range get_files(fmt.Sprintf("http://%s/", tvol)) {
+  parse_volume := func(tvol string, userpass string) {
+    for _, i := range get_files(fmt.Sprintf("http://%s%s/", userpass, tvol)) {
       if valid(i) {
-        for _, j := range get_files(fmt.Sprintf("http://%s/%s/", tvol, i.Name)) {
+        for _, j := range get_files(fmt.Sprintf("http://%s%s/%s/", userpass, tvol, i.Name)) {
           if valid(j) {
             wg.Add(1)
-            url := fmt.Sprintf("http://%s/%s/%s/", tvol, i.Name, j.Name)
+            url := fmt.Sprintf("http://%s%s/%s/%s/", userpass, tvol, i.Name, j.Name)
             reqs <- RebuildRequest{tvol, url}
           }
         }
@@ -143,14 +143,14 @@ func (a *App) Rebuild() {
 
   for _, vol := range a.volumes {
     has_subvolumes := false
-    for _, f := range get_files(fmt.Sprintf("http://%s/", vol)) {
+    for _, f := range get_files(fmt.Sprintf("http://%s%s/", a.userpass, vol)) {
       if len(f.Name) == 4 && strings.HasPrefix(f.Name, "sv") && f.Type == "directory" {
-        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name))
+        parse_volume(fmt.Sprintf("%s/%s", vol, f.Name), a.userpass)
         has_subvolumes = true
       }
     }
     if !has_subvolumes {
-      parse_volume(vol)
+      parse_volume(vol, a.userpass)
     }
   }
 

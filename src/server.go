@@ -77,20 +77,19 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (a *App) GetAuthorization(w http.ResponseWriter, r *http.Request) (string, bool) {
+func GetAuthorization(w http.ResponseWriter, r *http.Request, basicauth bool, volumes []string) (string, bool) {
   var authstring string
-  if a.basicauth == true {
+  if basicauth == true {
     authtoken := r.Header.Get("Authorization")
     if authtoken != "" {
-      authstringb, _ := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
-      authstring = string(authstringb)
-      authstring = authstring+"@"
-      remote := fmt.Sprintf("http://%s%s", authstring, a.volumes[rand.Intn(len(a.volumes))])
-      resp, err := http.Get(remote)
+      authstringb, err := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
       if err != nil {
         w.WriteHeader(500)
-        return authstring, false
+        return "", false
       }
+      authstring = string(authstringb)+"@"
+      remote := fmt.Sprintf("http://%s%s", authstring, volumes[rand.Intn(len(volumes))])
+      resp, err := http.Get(remote)
       if resp.StatusCode != 200 {
         w.WriteHeader(resp.StatusCode)
         return authstring, false
@@ -104,7 +103,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
 
   // check if user is authorized
-  authstring, authorized := a.GetAuthorization(w, r)
+  authstring, authorized := GetAuthorization(w, r, a.basicauth, a.volumes)
   if !authorized {
     return
   }
@@ -286,4 +285,3 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(204)
   }
 }
-
