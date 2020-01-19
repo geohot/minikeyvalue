@@ -20,17 +20,17 @@ authstring = ("" if authstring is None else authstring + "@")
 
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
-  
+
   def get_fresh_key(self):
     return b"http://"+str.encode(authstring)+b"localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
   # handle 302 manually https://github.com/psf/requests/issues/2949
   def handle_302(self, key, headers={}, req_type='GET'):
-    if req_type == 'GET': request_funcion = requests.get
-    if req_type == 'HEAD': request_funcion = requests.head
-    r = request_funcion(key, headers=headers, allow_redirects=False)
+    if req_type == 'GET': request_function = requests.get
+    if req_type == 'HEAD': request_function = requests.head
+    r = request_function(key, headers=headers, allow_redirects=False)
     if r.status_code == 302:
-      r = request_funcion(r.headers['Location'], headers=headers, allow_redirects=False)
+      r = request_function(r.headers['Location'], headers=headers, allow_redirects=False)
     return r
 
   def test_getputdelete(self):
@@ -219,6 +219,5 @@ if __name__ == '__main__':
         time.sleep(0.5)
         continue
       print("waiting for servers")
-  
-  unittest.main()
 
+  unittest.main()
