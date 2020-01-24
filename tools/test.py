@@ -28,9 +28,9 @@ class TestMiniKeyValue(unittest.TestCase):
   def custom_request(self, key, headers={}, req_type='GET'):
     if req_type == 'GET': request_function = requests.get
     if req_type == 'HEAD': request_function = requests.head
-    r = request_function(key, headers=headers, allow_redirects=True)
+    r = request_function(key, headers=headers, allow_redirects=False)
     if r.status_code == 302:
-      r = request_function(r.headers['Location'], headers=headers, allow_redirects=True)
+      r = request_function(r.headers['Location'], headers=headers, allow_redirects=False)
     return r
 
   def test_getputdelete(self):
