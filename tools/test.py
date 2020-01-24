@@ -30,7 +30,7 @@ class TestMiniKeyValue(unittest.TestCase):
     if req_type == 'HEAD': request_function = requests.head
     r = request_function(key, headers=headers, allow_redirects=False)
     if r.status_code == 302:
-      r = request_function(r.headers['Location'], headers=headers, allow_redirects=False)
+      r = request_function(r.headers['Location'], headers=headers, allow_redirects=True)
     return r
 
   def test_getputdelete(self):
