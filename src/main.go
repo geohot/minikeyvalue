@@ -24,6 +24,8 @@ type App struct {
   replicas int
   subvolumes int
   protect bool
+  basicauth bool
+  userpass string
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -66,7 +68,12 @@ func main() {
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes, disks per machine")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
+  basicauth := flag.Bool("basicauth", false, "Activate basic authorization")
+  userpass := flag.String("userpass", "", "Rebuild/rebalance with basic authorization (-userpass username:password)")
   flag.Parse()
+
+  userpassvalue := *userpass
+  if userpassvalue != "" { userpassvalue = fmt.Sprintf("%s@", userpassvalue) }
 
   volumes := strings.Split(*pvolumes, ",")
   command := flag.Arg(0)
@@ -99,6 +106,8 @@ func main() {
     replicas: *replicas,
     subvolumes: *subvolumes,
     protect: *protect,
+    basicauth: *basicauth,
+    userpass: userpassvalue,
   }
 
   if command == "server" {
