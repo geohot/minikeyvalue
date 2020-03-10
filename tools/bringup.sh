@@ -1,6 +1,8 @@
 #!/bin/bash
 #trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 kill $(pgrep -f nginx)
+kill $(pgrep -f mkv)
+kill $(pgrep -f volume)
 
 [ "$USERPASS" = "" ] && AUTHSTR="" || AUTHSTR="-basicauth"
 
