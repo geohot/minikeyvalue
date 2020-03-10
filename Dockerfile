@@ -18,14 +18,15 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /
-ENV GOPATH /go
+ENV GOPATH /usr/lib/go
 ENV PATH ${PATH}:/mkv
 
 COPY requirements.txt mkv/requirements.txt
 RUN pip3 install --no-cache-dir -r mkv/requirements.txt
 RUN htpasswd -b -c .htpasswd admin thisisatest && mv .htpasswd /etc/nginx
 
-COPY mkv volume mkv/
-COPY src/*.go mkv/src/
-COPY tools/* mkv/tools/
 WORKDIR /mkv
+
+COPY go.mod mkv volume ./
+COPY src/*.go ./src/
+COPY tools/* ./tools/
