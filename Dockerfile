@@ -18,7 +18,7 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /
-#ENV GOPATH /go
+ENV GOPATH /go
 ENV PATH ${PATH}:/mkv
 
 COPY requirements.txt mkv/requirements.txt
