@@ -153,3 +153,22 @@ Example of curl with basic authorization:
 # curl with --user <USER>:<PASSWORD>
 curl --user admin:thisisatest -v -L -X PUT -d bigswag localhost:3000/wehave
 ```
+
+### Docker usage
+
+Create docker image:
+```
+docker image build -t minikeyvalue:1.0 .
+```
+
+Create docker container:
+```
+docker container run -it \
+    -p 3000:3000 \
+    -p 3001:3001 \
+    -p 3002:3002 \
+    -p 3003:3003 \
+    -p 3004:3004 \
+    -p 3005:3005 \
+    --detach --name minikeyvalue minikeyvalue:1.0
+```
