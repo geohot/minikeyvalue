@@ -29,3 +29,4 @@ COPY mkv volume mkv/
 COPY src/*.go mkv/src/
 COPY tools/* mkv/tools/
 WORKDIR /mkv
+ENTRYPOINT ["tools/bringup.sh"]
