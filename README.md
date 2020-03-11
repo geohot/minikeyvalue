@@ -158,7 +158,7 @@ curl --user admin:thisisatest -v -L -X PUT -d bigswag localhost:3000/wehave
 
 Create docker image:
 ```
-docker image build -t minikeyvalue:1.0 .
+docker image build -t minikeyvalue .
 ```
 
 Create docker container:
@@ -170,5 +170,5 @@ docker container run -it \
     -p 3003:3003 \
     -p 3004:3004 \
     -p 3005:3005 \
-    --detach --name minikeyvalue minikeyvalue:1.0
+    --detach --name minikeyvalue minikeyvalue
 ```
