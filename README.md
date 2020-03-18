@@ -23,9 +23,9 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 
 ```
 # this is just nginx under the hood
-PORT=3001 ./volume /tmp/volume1/
-PORT=3002 ./volume /tmp/volume2/
-PORT=3003 ./volume /tmp/volume3/
+PORT=3001 ./volume /tmp/volume1/ &;
+PORT=3002 ./volume /tmp/volume2/ &;
+PORT=3003 ./volume /tmp/volume3/ &;
 ```
 
 ### Start Master Server (default port 3000)
