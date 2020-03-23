@@ -6,16 +6,6 @@ export PORT=${PORT:-3001}
 mkdir -p $VOLUME
 chmod 777 $VOLUME
 
-if [ "$AUTH" = "" ]
-then
-   AUTH=""
-else
-   AUTH="
-   auth_basic           \"Restricted\";
-   auth_basic_user_file $AUTH;
-   "
-fi
-
 CONF=$(mktemp)
 echo "
 daemon off; # docker
@@ -52,7 +42,6 @@ http {
   server {
     listen $PORT default_server backlog=4096;
     location / {
-      $AUTH
       root $VOLUME;
       disable_symlinks off;
 

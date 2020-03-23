@@ -15,23 +15,11 @@ logging.basicConfig(format='%(name)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-authstring = os.environ.get('USERPASS')
-authstring = ("" if authstring is None else authstring + "@")
-
 class TestMiniKeyValue(unittest.TestCase):
   maxDiff = None
   
   def get_fresh_key(self):
-    return b"http://"+str.encode(authstring)+b"localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
-
-  # handle 302 manually https://github.com/psf/requests/issues/2949
-  def custom_request(self, key, headers={}, req_type='GET'):
-    if req_type == 'GET': request_function = requests.get
-    if req_type == 'HEAD': request_function = requests.head
-    r = request_function(key, headers=headers, allow_redirects=False)
-    while r.status_code == 302:
-      r = request_function(r.headers['Location'], headers=headers, allow_redirects=False)
-    return r
+    return b"http://localhost:3000/swag-" + binascii.hexlify(os.urandom(10))
 
   def test_getputdelete(self):
     key = self.get_fresh_key()
@@ -39,7 +27,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertEqual(r.status_code, 201)
 
-    r = self.custom_request(key, req_type='GET')
+    r = requests.get(key)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.text, "onyou")
 
@@ -96,7 +84,7 @@ class TestMiniKeyValue(unittest.TestCase):
       self.assertEqual(r.status_code, 201)
 
     for k in keys:
-      r = self.custom_request(k, req_type='GET')
+      r = requests.get(k)
       self.assertEqual(r.status_code, 200)
       self.assertEqual(r.text, hashlib.md5(k).hexdigest())
 
@@ -109,7 +97,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data="onyou")
     self.assertEqual(r.status_code, 201)
 
-    r = self.custom_request(key, headers={"Range": "bytes=2-5"}, req_type='GET')
+    r = requests.get(key, headers={"Range": "bytes=2-5"})
     self.assertEqual(r.status_code, 206)
     self.assertEqual(r.text, "you")
 
@@ -131,7 +119,7 @@ class TestMiniKeyValue(unittest.TestCase):
     data = "onyou"
     r = requests.put(key, data=data)
     self.assertEqual(r.status_code, 201)
-    r = self.custom_request(key, req_type='HEAD')
+    r = requests.head(key, allow_redirects=True)
     self.assertEqual(r.status_code, 200)
     # redirect, content length should be size of data
     self.assertEqual(int(r.headers['content-length']), len(data))
@@ -144,7 +132,7 @@ class TestMiniKeyValue(unittest.TestCase):
     r = requests.put(key, data=data)
     self.assertEqual(r.status_code, 201)
 
-    r = self.custom_request(key, req_type='GET')
+    r = requests.get(key)
     self.assertEqual(r.status_code, 200)
     self.assertEqual(r.content, data)
 

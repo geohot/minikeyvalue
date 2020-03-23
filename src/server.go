@@ -10,7 +10,6 @@ import (
   "math/rand"
   "net/http"
   "encoding/json"
-  "encoding/base64"
   "github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -77,40 +76,8 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func GetAuthorization(authtoken string, basicauth bool, volumes []string) (string, int) {
-  var authstring string
-  if basicauth == true {
-    if authtoken != "" {
-      authstringb, err := base64.StdEncoding.DecodeString(strings.Split(authtoken, "Basic ")[1])
-      if err != nil {
-        return "", 500
-      }
-      // authstring will be used outside this function
-      authstring = string(authstringb)+"@"
-      remote := fmt.Sprintf("http://%s%s", authstring, volumes[rand.Intn(len(volumes))])
-      resp, err := http.Get(remote)
-      if err != nil {
-        // There was an error on get
-        return authstring, 500
-      } else if resp.StatusCode != 200 {
-        // Response was valid but different status code such has 401
-        return authstring, resp.StatusCode
-      }
-    }
-  }
-  return authstring, 200
-}
-
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   key := []byte(r.URL.Path)
-
-  // check if user is authorized
-  authtoken := r.Header.Get("Authorization")
-  authstring, statusCode := GetAuthorization(authtoken, a.basicauth, a.volumes)
-  if statusCode != 200 {
-    w.WriteHeader(statusCode)
-    return
-  }
 
   // this is a list query
   if len(r.URL.RawQuery) > 0 {
@@ -156,7 +123,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       // check the volume servers in a random order
       good := false
       for _, vn := range rand.Perm(len(rec.rvolumes)) {
-        remote = fmt.Sprintf("http://%s%s%s", authstring, rec.rvolumes[vn], key2path(key))
+        remote = fmt.Sprintf("http://%s%s", rec.rvolumes[vn], key2path(key))
         if remote_head(remote) {
           good = true
           break
@@ -206,7 +173,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         // if we have already read the contents into the TeeReader
         body = bytes.NewReader(buf.Bytes())
       }
-      remote := fmt.Sprintf("http://%s%s%s", authstring, kvolumes[i], key2path(key))
+      remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
       if remote_put(remote, bodylen, body) != nil {
         // we assume the remote wrote nothing if it failed
         fmt.Printf("replica %d write failed: %s\n", i, remote)
@@ -252,7 +219,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       // then remotely, if this is not an unlink
       delete_error := false
       for _, volume := range rec.rvolumes {
-        remote := fmt.Sprintf("http://%s%s%s", authstring, volume, key2path(key))
+        remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
         if remote_delete(remote) != nil {
           // if this fails, it's possible to get an orphan file
           // but i'm not really sure what else to do?
