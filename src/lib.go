@@ -139,7 +139,7 @@ func remote_delete(remote string) error {
     return err
   }
   defer resp.Body.Close()
-  if resp.StatusCode != 204 {
+  if resp.StatusCode != 204 && resp.StatusCode != 404 {
     return fmt.Errorf("remote_delete: wrong status code %d", resp.StatusCode)
   }
   return nil
