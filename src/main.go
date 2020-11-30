@@ -24,6 +24,7 @@ type App struct {
   replicas int
   subvolumes int
   protect bool
+  md5sum bool
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -66,6 +67,7 @@ func main() {
   subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes, disks per machine")
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
+  md5sum := flag.Bool("md5sum", true, "Calculate and store MD5 checksum of values")
   flag.Parse()
 
   volumes := strings.Split(*pvolumes, ",")
@@ -99,6 +101,7 @@ func main() {
     replicas: *replicas,
     subvolumes: *subvolumes,
     protect: *protect,
+    md5sum: *md5sum,
   }
 
   if command == "server" {

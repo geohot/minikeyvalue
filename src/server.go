@@ -182,8 +182,11 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
     }
 
-    // compute the hash of the value
-    hash := fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
+    var hash = ""
+    if a.md5sum {
+      // compute the hash of the value
+      hash = fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
+    }
 
     // push to leveldb as existing
     // note that the key is locked, so nobody wrote to the leveldb
