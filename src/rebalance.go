@@ -4,6 +4,7 @@ import (
   "fmt"
   "sync"
   "strings"
+  "time"
 )
 
 type RebalanceRequest struct {
@@ -18,7 +19,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
   // find the volumes that are real
   rvolumes := make([]string, 0)
   for _, rv := range req.volumes {
-    if remote_head(fmt.Sprintf("http://%s%s", rv, kp)) {
+    if remote_head(fmt.Sprintf("http://%s%s", rv, kp), 1*time.Second) {
       rvolumes = append(rvolumes, rv)
     }
   }
