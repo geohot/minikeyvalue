@@ -129,7 +129,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       good := false
       for _, vn := range rand.Perm(len(rec.rvolumes)) {
         remote = fmt.Sprintf("http://%s%s", rec.rvolumes[vn], key2path(key))
-        if remote_head(remote) {
+        if remote_head(remote, a.voltimeout) {
           good = true
           break
         }

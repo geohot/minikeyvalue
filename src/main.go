@@ -25,6 +25,7 @@ type App struct {
   subvolumes int
   protect bool
   md5sum bool
+  voltimeout time.Duration
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -68,6 +69,7 @@ func main() {
   pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
   protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
   md5sum := flag.Bool("md5sum", true, "Calculate and store MD5 checksum of values")
+  voltimeout := flag.Duration("voltimeout", 1*time.Second, "Volume servers must respond to GET/HEAD requests in this amount of time or they are considered down, as duration")
   flag.Parse()
 
   volumes := strings.Split(*pvolumes, ",")
@@ -102,6 +104,7 @@ func main() {
     subvolumes: *subvolumes,
     protect: *protect,
     md5sum: *md5sum,
+    voltimeout: *voltimeout,
   }
 
   if command == "server" {

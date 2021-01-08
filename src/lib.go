@@ -11,6 +11,8 @@ import (
   "net/http"
   "sort"
   "strings"
+  "context"
+  "time"
 )
 
 // *** DB Type ***
@@ -178,8 +180,10 @@ func remote_get(remote string) (string, error) {
   return string(body), nil
 }
 
-func remote_head(remote string) bool {
-  req, err := http.NewRequest("HEAD", remote, nil)
+func remote_head(remote string, timeout time.Duration) bool {
+  ctx, cancel := context.WithTimeout(context.Background(), timeout)
+  defer cancel()
+  req, err := http.NewRequestWithContext(ctx, "HEAD", remote, nil)
   if err != nil {
     return false
   }
