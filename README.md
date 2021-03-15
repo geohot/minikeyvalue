@@ -109,3 +109,58 @@ starting thrasher
 thats 3815.40/sec
 ```
 
+## Getting Started
+
+Quick tutorial to get you up and running on your local machine using Docker and Docker-Compose
+
+1. Build the Image locally
+
+```
+docker build github.com/geohot/minikeyvalue -t minikey:latest
+```
+
+2. Create a Docker-Compose file
+
+```
+touch docker-compose.yml
+```
+
+3. Using a text editor, place the following in your `docker-compose.yml` file
+
+```
+version: "3" 
+services:
+  vols0:
+    image: minikey:latest
+    ports:
+      - 3001:3001
+    command: bash -c "PORT=3001 ./volume /tmp/volume1/"
+    network_mode: "host"
+
+  vols1:
+    image: minikey:latest
+    ports:
+      - 3002:3002
+    command: bash -c "PORT=3002 ./volume /tmp/volume2/"
+    network_mode: "host"
+
+  vols3:
+    image: minikey:latest
+    ports:
+      - 3003:3003
+    command: bash -c "PORT=3003 ./volume /tmp/volume3/"
+    network_mode: "host"
+
+  masterServer:
+    image: minikey:latest
+    ports:
+      - "3000:3000"
+    command: bash -c "./mkv -port 3000 -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server"
+    network_mode: "host"
+```
+
+4. Run the containers
+
+```
+docker-compose up
+```
