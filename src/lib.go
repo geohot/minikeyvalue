@@ -180,18 +180,18 @@ func remote_get(remote string) (string, error) {
   return string(body), nil
 }
 
-func remote_head(remote string, timeout time.Duration) bool {
+func remote_head(remote string, timeout time.Duration) (bool, error) {
   ctx, cancel := context.WithTimeout(context.Background(), timeout)
   defer cancel()
   req, err := http.NewRequestWithContext(ctx, "HEAD", remote, nil)
   if err != nil {
-    return false
+    return false, err
   }
   resp, err := http.DefaultClient.Do(req)
   if err != nil {
-    return false
+    return false, err
   }
   defer resp.Body.Close()
-  return resp.StatusCode == 200
+  return resp.StatusCode == 200, nil
 }
 

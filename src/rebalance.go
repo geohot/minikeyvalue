@@ -19,13 +19,19 @@ func rebalance(a *App, req RebalanceRequest) bool {
   // find the volumes that are real
   rvolumes := make([]string, 0)
   for _, rv := range req.volumes {
-    if remote_head(fmt.Sprintf("http://%s%s", rv, kp), 1*time.Second) {
+    remote_test := fmt.Sprintf("http://%s%s", rv, kp)
+    found, err := remote_head(remote_test, 1*time.Minute)
+    if err != nil {
+      fmt.Println("rebalance head error", err, remote_test)
+      return false
+    }
+    if found {
       rvolumes = append(rvolumes, rv)
     }
   }
 
   if len(rvolumes) == 0 {
-    fmt.Printf("can't rebalance, %s is missing!\n", string(req.key))
+    fmt.Printf("rebalance impossible, %s is missing!\n", string(req.key))
     return false
   }
 
@@ -42,7 +48,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
   // read
   ss, err := remote_get(remote_from)
   if err != nil {
-    fmt.Println("get error", err, remote_from)
+    fmt.Println("rebalance get error", err, remote_from)
     return false
   }
 
@@ -60,7 +66,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
       remote_to := fmt.Sprintf("http://%s%s", v, kp)
       // write
       if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
-        fmt.Println("put error", err, remote_to)
+        fmt.Println("rebalance put error", err, remote_to)
         return false
       }
     }
@@ -68,7 +74,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
 
   // update db
   if !a.PutRecord(req.key, Record{req.kvolumes, NO, ""}) {
-    fmt.Println("put db error", err)
+    fmt.Println("rebalance put db error", err)
     return false
   }
 
@@ -85,7 +91,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
     if needs_delete {
       remote_del := fmt.Sprintf("http://%s%s", v2, kp)
       if err := remote_delete(remote_del); err != nil {
-        fmt.Println("delete error", err, remote_del)
+        fmt.Println("rebalance delete error", err, remote_del)
         delete_error = true
       }
     }
