@@ -1,6 +1,6 @@
 # minikeyvalue
 
-[![Build Status](https://travis-ci.org/geohot/minikeyvalue.svg?branch=master)](https://travis-ci.org/geohot/minikeyvalue)
+![Tests](https://github.com/geohot/minikeyvalue/workflows/Tests/badge.svg)
 
 Fed up with the complexity of distributed filesystems?
 
