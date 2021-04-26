@@ -15,7 +15,7 @@ jobs:
       run: go test -v src/lib_test.go src/lib.go
     - name: Thrasher Test
       run: |
-        (./tools/bringup.sh &)
+        ./tools/bringup.sh
         ./tools/test.py
         go run tools/thrasher.go
         ./tools/rtest.sh
