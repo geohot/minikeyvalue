@@ -31,14 +31,14 @@ PORT=3003 ./volume /tmp/volume3/ &;
 ### Start Master Server (default port 3000)
 
 ```
-./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
+GO111MODULE=auto ./mkv -volumes localhost:3001,localhost:3002,localhost:3003 -db /tmp/indexdb/ server
 ```
 
 
 ### Usage
 
 ```
-# put "bigswag" in key "wehave"
+# put "bigswag" in key "wehave" (will 403 if it already exists)
 curl -v -L -X PUT -d bigswag localhost:3000/wehave
 
 # get key "wehave" (should be "bigswag")
