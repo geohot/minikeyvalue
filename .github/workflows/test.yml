@@ -1,0 +1,18 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  unit:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+    - name: Install Go/nginx
+      run: sudo apt-get -y --no-install-recommends golang nginx
+    - name: Unit Tests
+      run: go test -v src/lib_test.go src/lib.go
+    - name: Thrasher Test
+      run: (./tools/bringup.sh &) && ./tools/test.py && go run tools/thrasher.go && ./tools/rtest.sh
+
