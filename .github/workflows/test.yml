@@ -16,7 +16,7 @@ jobs:
     - name: Set log permissions
       run: |
         sudo mkdir -p /var/log/nginx
-        sudo chmod 777 /var/log/nginx
+        sudo chmod 777 /var/log/nginx /var/log/nginx/*
     - name: Unit Tests
       run: go test -v src/lib_test.go src/lib.go
     - name: Thrasher Test
