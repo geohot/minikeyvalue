@@ -100,6 +100,46 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (a *App) Delete(key []byte, unlink bool) int {
+	// delete the key, first locally
+	rec := a.GetRecord(key)
+	if rec.deleted == HARD || (unlink && rec.deleted == SOFT) {
+		return 404
+	}
+
+	if !unlink && a.protect && rec.deleted == NO {
+		return 403
+	}
+
+	// mark as deleted
+	if !a.PutRecord(key, Record{rec.rvolumes, SOFT, rec.hash}) {
+		return 500
+	}
+
+	if !unlink {
+		// then remotely, if this is not an unlink
+		delete_error := false
+		for _, volume := range rec.rvolumes {
+			remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+			if remote_delete(remote) != nil {
+				// if this fails, it's possible to get an orphan file
+				// but i'm not really sure what else to do?
+				delete_error = true
+			}
+		}
+
+		if delete_error {
+			return 500
+		}
+
+		// this is a hard delete in the database, aka nothing
+		a.db.Delete(key, nil)
+	}
+
+	// 204, all good
+	return 204
+}
+
 func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 	// we don't have the key, compute the remote URL
 	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
@@ -228,6 +268,23 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`<InitiateMultipartUploadResult>
         <UploadId>` + uploadid + `</UploadId>
       </InitiateMultipartUploadResult>`))
+		} else if r.URL.RawQuery == "delete" {
+			del, err := parseDelete(r.Body)
+			if err != nil {
+				log.Println(err)
+				w.WriteHeader(500)
+				return
+			}
+
+			for _, subkey := range del.Keys {
+				fullkey := fmt.Sprintf("%s/%s", key, subkey)
+				status := a.Delete([]byte(fullkey), false)
+				if status != 204 {
+					w.WriteHeader(status)
+					return
+				}
+			}
+			w.WriteHeader(204)
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
 			if a.uploadids[uploadid] != true {
 				w.WriteHeader(403)
@@ -300,49 +357,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(status)
 		}
 	case "DELETE", "UNLINK":
-		unlink := r.Method == "UNLINK"
-
-		// delete the key, first locally
-		rec := a.GetRecord(key)
-		if rec.deleted == HARD || (unlink && rec.deleted == SOFT) {
-			w.WriteHeader(404)
-			return
-		}
-
-		if !unlink && a.protect && rec.deleted == NO {
-			w.WriteHeader(403)
-			return
-		}
-
-		// mark as deleted
-		if !a.PutRecord(key, Record{rec.rvolumes, SOFT, rec.hash}) {
-			w.WriteHeader(500)
-			return
-		}
-
-		if !unlink {
-			// then remotely, if this is not an unlink
-			delete_error := false
-			for _, volume := range rec.rvolumes {
-				remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
-				if remote_delete(remote) != nil {
-					// if this fails, it's possible to get an orphan file
-					// but i'm not really sure what else to do?
-					delete_error = true
-				}
-			}
-
-			if delete_error {
-				w.WriteHeader(500)
-				return
-			}
-
-			// this is a hard delete in the database, aka nothing
-			a.db.Delete(key, nil)
-		}
-
-		// 204, all good
-		w.WriteHeader(204)
+		status := a.Delete(key, r.Method == "UNLINK")
+		w.WriteHeader(status)
 	case "REBALANCE":
 		rec := a.GetRecord(key)
 		if rec.deleted != NO {

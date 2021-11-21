@@ -33,12 +33,19 @@ class TestS3PyArrow(unittest.TestCase):
     self.assertIn(fn, fns)
 
   # need to support file delete with POST
-  # which requires parsing XML
-  @unittest.expectedFailure
   def test_deletedir(self):
     fn = self.get_fresh_key()+"-deltest"
     self.write_file(fn, b"hello1")
     self.s3.delete_dir_contents('bucket')
+    inf = self.s3.get_file_info(fn)
+    self.assertEqual(inf.type, fs.FileType.NotFound)
+
+  def test_deletefile(self):
+    fn = self.get_fresh_key()+"-delftest"
+    self.write_file(fn, b"hello1")
+    inf = self.s3.get_file_info(fn)
+    self.assertEqual(inf.size, 6)
+    self.s3.delete_file(fn)
     inf = self.s3.get_file_info(fn)
     self.assertEqual(inf.type, fs.FileType.NotFound)
 
