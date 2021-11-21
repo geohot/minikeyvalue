@@ -206,15 +206,19 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// this will handle multipart uploads in "S3"
+		b64key := base64.StdEncoding.EncodeToString(key)
 		if r.URL.RawQuery == "uploads" {
 			// init multipart upload
-			b64key := base64.StdEncoding.EncodeToString(key)
 			w.WriteHeader(200)
 			w.Write([]byte(`<InitiateMultipartUploadResult>
         <UploadId>` + b64key + `</UploadId>
       </InitiateMultipartUploadResult>`))
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
 			// finish multipart upload
+			if b64key != uploadid {
+				w.WriteHeader(403)
+				return
+			}
 			fn := "/tmp/" + uploadid
 			f, err := os.Open(fn)
 			os.Remove(fn)
@@ -244,7 +248,13 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if pn := r.URL.Query().Get("partNumber"); pn != "" {
+			b64key := base64.StdEncoding.EncodeToString(key)
 			uploadid := r.URL.Query().Get("uploadId")
+			if b64key != uploadid {
+				w.WriteHeader(403)
+				return
+			}
+
 			var flag int
 			if pn == "1" {
 				flag = os.O_RDWR | os.O_CREATE
