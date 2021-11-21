@@ -19,10 +19,13 @@ jobs:
         sudo chmod 777 /var/log/nginx /var/log/nginx/*
     - name: Unit Tests
       run: go test -v src/lib_test.go src/lib.go
+    - name: Install Python Requirements
+      run: pip3 install requirements.txt
     - name: Thrasher Test
       run: |
         (./tools/bringup.sh &)
         ./tools/test.py
+        ./tools/s3test.py
         go run tools/thrasher.go
         ./tools/rtest.sh
 
