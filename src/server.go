@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -27,8 +28,21 @@ type ListResponse struct {
 func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("list-type") == "2" {
 		// this is an S3 style query
-		// TODO: support this
-		w.WriteHeader(403)
+		// TODO: this is very incomplete
+		iter := a.db.NewIterator(util.BytesPrefix(key), nil)
+		defer iter.Release()
+
+		ret := "<ListBucketResult>"
+		for iter.Next() {
+			rec := toRecord(iter.Value())
+			if rec.deleted != NO {
+				continue
+			}
+			ret += "<Contents><Key>" + string(iter.Key()[len(key)+1:]) + "</Key></Contents>"
+		}
+		ret += "</ListBucketResult>"
+		w.WriteHeader(200)
+		w.Write([]byte(ret))
 		return
 	}
 
@@ -197,6 +211,13 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "0")
 		w.WriteHeader(302)
 	case "POST":
+		dat, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(500)
+			return
+		}
+		log.Println(string(dat))
+
 		// check if we already have the key, and it's not deleted
 		rec := a.GetRecord(key)
 		if rec.deleted == NO {
@@ -215,6 +236,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       </InitiateMultipartUploadResult>`))
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
 			// finish multipart upload
+			// TODO: actually parse the XML and save the parts in different tmpfiles
 			if b64key != uploadid {
 				w.WriteHeader(403)
 				return
