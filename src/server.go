@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -85,6 +87,47 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
+	// we don't have the key, compute the remote URL
+	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+
+	// push to leveldb initially as deleted, and without a hash since we don't have it yet
+	if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
+		return 500
+	}
+
+	// write to each replica
+	var buf bytes.Buffer
+	body := io.TeeReader(value, &buf)
+	for i := 0; i < len(kvolumes); i++ {
+		if i != 0 {
+			// if we have already read the contents into the TeeReader
+			body = bytes.NewReader(buf.Bytes())
+		}
+		remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
+		if remote_put(remote, valuelen, body) != nil {
+			// we assume the remote wrote nothing if it failed
+			fmt.Printf("replica %d write failed: %s\n", i, remote)
+			return 500
+		}
+	}
+
+	var hash = ""
+	if a.md5sum {
+		// compute the hash of the value
+		hash = fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
+	}
+
+	// push to leveldb as existing
+	// note that the key is locked, so nobody wrote to the leveldb
+	if !a.PutRecord(key, Record{kvolumes, NO, hash}) {
+		return 500
+	}
+
+	// 201, all good
+	return 201
+}
+
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := []byte(r.URL.Path)
 
@@ -97,7 +140,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// lock the key while a PUT or DELETE is in progress
-	if r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
 		if !a.LockKey(key) {
 			// Conflict, retry later
 			w.WriteHeader(409)
@@ -154,8 +197,35 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "0")
 		w.WriteHeader(302)
 	case "POST":
-		// this will init multipart uploads in "S3"
-		// TODO: add real support for multipart uploads
+		// check if we already have the key, and it's not deleted
+		rec := a.GetRecord(key)
+		if rec.deleted == NO {
+			// Forbidden to overwrite with POST
+			w.WriteHeader(403)
+			return
+		}
+
+		// this will handle multipart uploads in "S3"
+		if r.URL.RawQuery == "uploads" {
+			// init multipart upload
+			b64key := base64.StdEncoding.EncodeToString(key)
+			w.WriteHeader(200)
+			w.Write([]byte(`<InitiateMultipartUploadResult>
+        <UploadId>` + b64key + `</UploadId>
+      </InitiateMultipartUploadResult>`))
+		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
+			// finish multipart upload
+			f, err := os.Open("/tmp/" + uploadid)
+			if err != nil {
+				w.WriteHeader(403)
+				return
+			}
+			defer f.Close()
+			fi, _ := f.Stat()
+			status := a.WriteToReplicas(key, f, fi.Size())
+			w.WriteHeader(status)
+			return
+		}
 	case "PUT":
 		// no empty values
 		if r.ContentLength == 0 {
@@ -171,48 +241,26 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// we don't have the key, compute the remote URL
-		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
-
-		// push to leveldb initially as deleted, and without a hash since we don't have it yet
-		if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
-			w.WriteHeader(500)
-			return
-		}
-
-		// write to each replica
-		var buf bytes.Buffer
-		body := io.TeeReader(r.Body, &buf)
-		bodylen := r.ContentLength
-		for i := 0; i < len(kvolumes); i++ {
-			if i != 0 {
-				// if we have already read the contents into the TeeReader
-				body = bytes.NewReader(buf.Bytes())
+		if pn := r.URL.Query().Get("partNumber"); pn != "" {
+			uploadid := r.URL.Query().Get("uploadId")
+			var flag int
+			if pn == "1" {
+				flag = os.O_RDWR | os.O_CREATE
+			} else {
+				flag = os.O_RDWR | os.O_APPEND
 			}
-			remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-			if remote_put(remote, bodylen, body) != nil {
-				// we assume the remote wrote nothing if it failed
-				fmt.Printf("replica %d write failed: %s\n", i, remote)
-				w.WriteHeader(500)
+			f, err := os.OpenFile("/tmp/"+uploadid, flag, 0600)
+			if err != nil {
+				w.WriteHeader(403)
 				return
 			}
+			defer f.Close()
+			io.Copy(f, r.Body)
+			w.WriteHeader(200)
+		} else {
+			status := a.WriteToReplicas(key, r.Body, r.ContentLength)
+			w.WriteHeader(status)
 		}
-
-		var hash = ""
-		if a.md5sum {
-			// compute the hash of the value
-			hash = fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
-		}
-
-		// push to leveldb as existing
-		// note that the key is locked, so nobody wrote to the leveldb
-		if !a.PutRecord(key, Record{kvolumes, NO, hash}) {
-			w.WriteHeader(500)
-			return
-		}
-
-		// 201, all good
-		w.WriteHeader(201)
 	case "DELETE", "UNLINK":
 		unlink := r.Method == "UNLINK"
 

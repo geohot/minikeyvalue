@@ -16,7 +16,6 @@ class TestS3PyArrow(unittest.TestCase):
     s3.delete_dir('bucket')
 
   # this needs multipart uploads to work
-  @unittest.expectedFailure
   def test_largerw(self):
     tbl = pa.table([pa.array(range(10000000))], ['a'])
 
