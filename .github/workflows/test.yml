@@ -20,7 +20,7 @@ jobs:
     - name: Unit Tests
       run: go test -v src/lib_test.go src/lib.go
     - name: Install Python Requirements
-      run: pip3 install requirements.txt
+      run: pip3 install --no-cache-dir -r requirements.txt
     - name: Thrasher Test
       run: |
         (./tools/bringup.sh &)
