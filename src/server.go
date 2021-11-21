@@ -23,6 +23,13 @@ type ListResponse struct {
 }
 
 func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("list-type") == "2" {
+		// this is an S3 style query
+		// TODO: support this
+		w.WriteHeader(403)
+		return
+	}
+
 	// operation is first query parameter (e.g. ?list&limit=10)
 	operation := strings.Split(r.URL.RawQuery, "&")[0]
 	switch operation {
