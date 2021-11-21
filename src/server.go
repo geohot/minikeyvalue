@@ -215,7 +215,9 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       </InitiateMultipartUploadResult>`))
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
 			// finish multipart upload
-			f, err := os.Open("/tmp/" + uploadid)
+			fn := "/tmp/" + uploadid
+			f, err := os.Open(fn)
+			os.Remove(fn)
 			if err != nil {
 				w.WriteHeader(403)
 				return
