@@ -1,4 +1,4 @@
 #!/bin/bash -e
-go get github.com/syndtr/goleveldb/leveldb
-go run src/main.go src/lib.go src/server.go src/rebalance.go src/rebuild.go $@
-
+cd src
+go build -o mkv
+./mkv $@
