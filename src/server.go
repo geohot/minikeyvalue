@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -80,12 +81,10 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := []byte(r.URL.Path)
 
+	log.Println(r.Method, r.URL, r.URL.RawQuery)
+
 	// this is a list query
-	if len(r.URL.RawQuery) > 0 {
-		if r.Method != "GET" {
-			w.WriteHeader(403)
-			return
-		}
+	if len(r.URL.RawQuery) > 0 && r.Method == "GET" {
 		a.QueryHandler(key, w, r)
 		return
 	}
@@ -147,6 +146,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Location", remote)
 		w.Header().Set("Content-Length", "0")
 		w.WriteHeader(302)
+	case "POST":
+		// this will init multipart uploads in "S3"
 	case "PUT":
 		// no empty values
 		if r.ContentLength == 0 {
@@ -187,6 +188,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(500)
 				return
 			}
+			log.Println("wrote", bodylen)
 		}
 
 		var hash = ""

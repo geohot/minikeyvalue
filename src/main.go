@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -71,6 +73,7 @@ func main() {
 	subvolumes := flag.Int("subvolumes", 10, "Amount of subvolumes, disks per machine")
 	pvolumes := flag.String("volumes", "", "Volumes to use for storage, comma separated")
 	protect := flag.Bool("protect", false, "Force UNLINK before DELETE")
+	verbose := flag.Bool("v", false, "Verbose output")
 	md5sum := flag.Bool("md5sum", true, "Calculate and store MD5 checksum of values")
 	voltimeout := flag.Duration("voltimeout", 1*time.Second, "Volume servers must respond to GET/HEAD requests in this amount of time or they are considered down, as duration")
 	flag.Parse()
@@ -82,6 +85,10 @@ func main() {
 		fmt.Println("Usage: ./mkv <server, rebuild, rebalance>")
 		flag.PrintDefaults()
 		return
+	}
+
+	if !*verbose {
+		log.SetOutput(ioutil.Discard)
 	}
 
 	if *pdb == "" {
