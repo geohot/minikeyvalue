@@ -3,11 +3,9 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -15,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -211,13 +210,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "0")
 		w.WriteHeader(302)
 	case "POST":
-		dat, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(500)
-			return
-		}
-		log.Println(string(dat))
-
 		// check if we already have the key, and it's not deleted
 		rec := a.GetRecord(key)
 		if rec.deleted == NO {
@@ -227,30 +219,48 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// this will handle multipart uploads in "S3"
-		b64key := base64.StdEncoding.EncodeToString(key)
 		if r.URL.RawQuery == "uploads" {
+			uploadid := uuid.New().String()
+			a.uploadids[uploadid] = true
+
 			// init multipart upload
 			w.WriteHeader(200)
 			w.Write([]byte(`<InitiateMultipartUploadResult>
-        <UploadId>` + b64key + `</UploadId>
+        <UploadId>` + uploadid + `</UploadId>
       </InitiateMultipartUploadResult>`))
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
+			if a.uploadids[uploadid] != true {
+				w.WriteHeader(403)
+				return
+			}
+			delete(a.uploadids, uploadid)
+
 			// finish multipart upload
-			// TODO: actually parse the XML and save the parts in different tmpfiles
-			if b64key != uploadid {
-				w.WriteHeader(403)
-				return
-			}
-			fn := "/tmp/" + uploadid
-			f, err := os.Open(fn)
-			os.Remove(fn)
+			cmu, err := parseCompleteMultipartUpload(r.Body)
 			if err != nil {
-				w.WriteHeader(403)
+				log.Println(err)
+				w.WriteHeader(500)
 				return
 			}
-			defer f.Close()
-			fi, _ := f.Stat()
-			status := a.WriteToReplicas(key, f, fi.Size())
+
+			// open all the part files
+			var fs []io.Reader
+			sz := int64(0)
+			for _, part := range cmu.PartNumbers {
+				fn := fmt.Sprintf("/tmp/%s-%d", uploadid, part)
+				f, err := os.Open(fn)
+				os.Remove(fn)
+				if err != nil {
+					w.WriteHeader(403)
+					return
+				}
+				defer f.Close()
+				fi, _ := f.Stat()
+				sz += fi.Size()
+				fs = append(fs, f)
+			}
+
+			status := a.WriteToReplicas(key, io.MultiReader(fs...), sz)
 			w.WriteHeader(status)
 			return
 		}
@@ -270,20 +280,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if pn := r.URL.Query().Get("partNumber"); pn != "" {
-			b64key := base64.StdEncoding.EncodeToString(key)
 			uploadid := r.URL.Query().Get("uploadId")
-			if b64key != uploadid {
+			if a.uploadids[uploadid] != true {
 				w.WriteHeader(403)
 				return
 			}
 
-			var flag int
-			if pn == "1" {
-				flag = os.O_RDWR | os.O_CREATE
-			} else {
-				flag = os.O_RDWR | os.O_APPEND
-			}
-			f, err := os.OpenFile("/tmp/"+uploadid, flag, 0600)
+			pnnum, _ := strconv.Atoi(pn)
+			f, err := os.OpenFile(fmt.Sprintf("/tmp/%s-%d", uploadid, pnnum), os.O_RDWR|os.O_CREATE, 0600)
 			if err != nil {
 				w.WriteHeader(403)
 				return

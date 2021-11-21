@@ -22,6 +22,7 @@ type App struct {
 	lock  map[string]struct{}
 
 	// params
+	uploadids  map[string]bool
 	volumes    []string
 	fallback   string
 	replicas   int
@@ -108,6 +109,7 @@ func main() {
 	fmt.Printf("volume servers: %s\n", volumes)
 	a := App{db: db,
 		lock:       make(map[string]struct{}),
+		uploadids:  make(map[string]bool),
 		volumes:    volumes,
 		fallback:   *fallback,
 		replicas:   *replicas,
