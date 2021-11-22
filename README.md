@@ -19,6 +19,8 @@ Even if this code is crap, the on disk format is super simple! We rely on a file
 - DELETE /key
   - Blocks. 204 = deleted, anything else = probably not deleted.
 
+It also now supports a subset of S3 requests, so some S3 libraries will be somewhat compatible.
+
 ### Start Volume Servers (default port 3001)
 
 ```
