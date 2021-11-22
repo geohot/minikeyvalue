@@ -9,10 +9,14 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
-    - name: Install Go/nginx
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.17'
+    - name: Install nginx
       run: |
         sudo apt-get update
-        sudo apt-get -y --no-install-recommends install golang nginx build-essential
+        sudo apt-get -y --no-install-recommends install nginx build-essential
     - name: Set log permissions
       run: |
         sudo mkdir -p /var/log/nginx
@@ -28,4 +32,3 @@ jobs:
         ./tools/s3test.py
         go run tools/thrasher.go
         ./tools/rtest.sh
-
