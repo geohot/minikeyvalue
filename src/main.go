@@ -90,6 +90,8 @@ func main() {
 
 	if !*verbose {
 		log.SetOutput(ioutil.Discard)
+	} else {
+		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
 
 	if *pdb == "" {
