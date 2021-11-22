@@ -33,7 +33,7 @@ class TestS3PyArrow(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     # why is this so slow?
-    cls.s3 = fs.S3FileSystem(endpoint_override="localhost:3000", scheme="http")
+    cls.s3 = fs.S3FileSystem(endpoint_override="localhost:3000", scheme="http", anonymous=True)
 
   def get_fresh_key(self):
     return "bucket/swag-" + binascii.hexlify(os.urandom(10)).decode('utf-8')
