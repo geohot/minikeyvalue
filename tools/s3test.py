@@ -13,7 +13,7 @@ class TestS3Boto(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    cls.s3 = boto3.client('s3', endpoint_url="http://localhost:3000", aws_access_key_id="user", aws_secret_access_key="password")
+    cls.s3 = boto3.client('s3', endpoint_url="http://127.0.0.1:3000", aws_access_key_id="user", aws_secret_access_key="password")
 
   def test_writelist(self):
     key = self.get_fresh_key()
@@ -33,7 +33,7 @@ class TestS3PyArrow(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     # why is this so slow?
-    cls.s3 = fs.S3FileSystem(endpoint_override="localhost:3000", scheme="http", anonymous=True)
+    cls.s3 = fs.S3FileSystem(region="", endpoint_override="127.0.0.1:3000", scheme="http", anonymous=True)
 
   def get_fresh_key(self):
     return "bucket/swag-" + binascii.hexlify(os.urandom(10)).decode('utf-8')
