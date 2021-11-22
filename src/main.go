@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -89,7 +89,7 @@ func main() {
 	}
 
 	if !*verbose {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	} else {
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}

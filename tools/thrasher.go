@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -55,7 +54,7 @@ func remote_get(remote string) (string, error) {
 	if resp.StatusCode != 200 {
 		return "", errors.New(fmt.Sprintf("remote_get: wrong status code %d", resp.StatusCode))
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
