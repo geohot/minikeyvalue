@@ -74,7 +74,7 @@ class TestS3PyArrow(unittest.TestCase):
 
   # this needs multipart uploads to work
   def test_largerw(self):
-    tbl = pa.table([pa.array(range(10000000))], ['a'])
+    tbl = pa.table([pa.array(range(5000000)), pa.array(range(5000000))], ['a', 'b'])
 
     key = self.get_fresh_key()
     pq.write_table(tbl, key, filesystem=self.s3)
