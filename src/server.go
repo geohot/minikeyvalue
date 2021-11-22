@@ -184,6 +184,7 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := []byte(r.URL.Path)
+	lkey := []byte(r.URL.Path + r.URL.Query().Get("partNumber"))
 
 	log.Println(r.Method, r.URL, r.ContentLength, r.Header["Range"])
 
@@ -195,12 +196,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// lock the key while a PUT or DELETE is in progress
 	if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
-		if !a.LockKey(key) {
+		if !a.LockKey(lkey) {
 			// Conflict, retry later
 			w.WriteHeader(409)
 			return
 		}
-		defer a.UnlockKey(key)
+		defer a.UnlockKey(lkey)
 	}
 
 	switch r.Method {
@@ -320,6 +321,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			status := a.WriteToReplicas(key, io.MultiReader(fs...), sz)
 			w.WriteHeader(status)
+			w.Write([]byte("<CompleteMultipartUploadResult></CompleteMultipartUploadResult>"))
 			return
 		}
 	case "PUT":
