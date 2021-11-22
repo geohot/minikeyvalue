@@ -5,6 +5,29 @@ import unittest
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pyarrow import fs
+import boto3
+
+class TestS3Boto(unittest.TestCase):
+  def get_fresh_key(self):
+    return "swag-" + binascii.hexlify(os.urandom(10)).decode('utf-8')
+
+  @classmethod
+  def setUpClass(cls):
+    cls.s3 = boto3.client('s3', endpoint_url="http://localhost:3000", aws_access_key_id="user", aws_secret_access_key="password")
+
+  def test_writelist(self):
+    key = self.get_fresh_key()
+    self.s3.put_object(Body=b'hello1', Bucket='boto', Key=key)
+    response = self.s3.list_objects_v2(Bucket='boto')
+    keys = [x['Key'] for x in response['Contents']]
+    self.assertIn(key, keys)
+
+  @unittest.expectedFailure
+  def test_writeread(self):
+    key = self.get_fresh_key()
+    self.s3.put_object(Body=b'hello1', Bucket='boto', Key=key)
+    # sadly this doesn't work because it won't follow the redirect
+    self.s3.get_object(Bucket="boto", Key=key)
 
 class TestS3PyArrow(unittest.TestCase):
   @classmethod
