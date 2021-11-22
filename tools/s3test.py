@@ -32,8 +32,9 @@ class TestS3Boto(unittest.TestCase):
 class TestS3PyArrow(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
-    # why is this so slow?
-    cls.s3 = fs.S3FileSystem(region="", endpoint_override="127.0.0.1:3000", scheme="http", anonymous=True)
+    # this prevents stupid requests to 169.254.169.254 which take a while
+    os.environ["AWS_EC2_METADATA_DISABLED"] = "true"
+    cls.s3 = fs.S3FileSystem(endpoint_override="127.0.0.1:3000", scheme="http", anonymous=True)
 
   def get_fresh_key(self):
     return "bucket/swag-" + binascii.hexlify(os.urandom(10)).decode('utf-8')
@@ -74,7 +75,7 @@ class TestS3PyArrow(unittest.TestCase):
 
   # this needs multipart uploads to work
   def test_largerw(self):
-    tbl = pa.table([pa.array(range(5000000)), pa.array(range(5000000))], ['a', 'b'])
+    tbl = pa.table([pa.array(range(2000000)), pa.array(range(2000000))], ['a', 'b'])
 
     key = self.get_fresh_key()
     pq.write_table(tbl, key, filesystem=self.s3)
