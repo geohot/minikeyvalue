@@ -28,6 +28,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("list-type") == "2" {
 		// this is an S3 style query
 		// TODO: this is very incomplete
+		key = []byte(string(key) + "/" + r.URL.Query().Get("prefix"))
 		iter := a.db.NewIterator(util.BytesPrefix(key), nil)
 		defer iter.Release()
 
@@ -37,7 +38,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 			if rec.deleted != NO {
 				continue
 			}
-			ret += "<Contents><Key>" + string(iter.Key()[len(key)+1:]) + "</Key></Contents>"
+			ret += "<Contents><Key>" + string(iter.Key()[len(key):]) + "</Key></Contents>"
 		}
 		ret += "</ListBucketResult>"
 		w.WriteHeader(200)
