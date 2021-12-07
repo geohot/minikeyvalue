@@ -42,17 +42,26 @@ func rebalance(a *App, req RebalanceRequest) bool {
 	// debug
 	fmt.Println("rebalancing", string(req.key), "from", rvolumes, "to", req.kvolumes)
 
-	// always read from the first one
-	remote_from := fmt.Sprintf("http://%s%s", rvolumes[0], kp)
+	// find a good rvolume
+	var err error = nil
+	var ss string
+	for _, v := range rvolumes {
+		remote_from := fmt.Sprintf("http://%s%s", v, kp)
 
-	// read
-	ss, err := remote_get(remote_from)
+		// read
+		ss, err = remote_get(remote_from)
+		if err != nil {
+			fmt.Println("rebalance get error", err, remote_from)
+		} else {
+			break
+		}
+	}
 	if err != nil {
-		fmt.Println("rebalance get error", err, remote_from)
 		return false
 	}
 
 	// write to the kvolumes
+	rebalance_error := false
 	for _, v := range req.kvolumes {
 		needs_write := true
 		// see if it's already there
@@ -67,9 +76,12 @@ func rebalance(a *App, req RebalanceRequest) bool {
 			// write
 			if err := remote_put(remote_to, int64(len(ss)), strings.NewReader(ss)); err != nil {
 				fmt.Println("rebalance put error", err, remote_to)
-				return false
+				rebalance_error = true
 			}
 		}
+	}
+	if rebalance_error {
+		return false
 	}
 
 	// update db
