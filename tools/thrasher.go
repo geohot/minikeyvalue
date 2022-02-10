@@ -74,17 +74,17 @@ func main() {
 	// 16 concurrent processes
 	for i := 0; i < 16; i++ {
 		go func() {
-			for {
-				key := <-reqs
-				value := fmt.Sprintf("value-%d", rand.Int())
-				if err := remote_put("http://localhost:3000/"+key, int64(len(value)), strings.NewReader(value)); err != nil {
+			for key := range reqs {
+				value := make([]byte, 1024*1024) // 1MB
+				rand.Read(value)
+				if err := remote_put("http://localhost:3000/"+key, int64(len(value)), bytes.NewReader(value)); err != nil {
 					fmt.Println("PUT FAILED", err)
 					resp <- false
 					continue
 				}
 
 				ss, err := remote_get("http://localhost:3000/" + key)
-				if err != nil || ss != value {
+				if err != nil || ss != string(value) {
 					fmt.Println("GET FAILED", err, ss, value)
 					resp <- false
 					continue
