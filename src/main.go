@@ -122,7 +122,10 @@ func main() {
 	}
 
 	if command == "server" {
-		http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
+		if err != nil {
+			panic(err)
+		}
 	} else if command == "rebuild" {
 		a.Rebuild()
 	} else if command == "rebalance" {
