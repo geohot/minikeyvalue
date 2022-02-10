@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -150,26 +152,38 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 		return 500
 	}
 
+	buf, err := ioutil.ReadAll(value)
+	if err != nil {
+		return 500
+	}
+
 	// write to each replica
-	var buf bytes.Buffer
-	body := io.TeeReader(value, &buf)
+	var (
+		wg   sync.WaitGroup
+		errs = make(chan error, len(kvolumes))
+	)
 	for i := 0; i < len(kvolumes); i++ {
-		if i != 0 {
-			// if we have already read the contents into the TeeReader
-			body = bytes.NewReader(buf.Bytes())
-		}
-		remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-		if remote_put(remote, valuelen, body) != nil {
-			// we assume the remote wrote nothing if it failed
-			fmt.Printf("replica %d write failed: %s\n", i, remote)
-			return 500
-		}
+		wg.Add(1)
+		go func(volume string, body io.Reader) {
+			defer wg.Done()
+			remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
+			if err := remote_put(remote, valuelen, body); err != nil {
+				// we assume the remote wrote nothing if it failed
+				fmt.Printf("replica write failed: %s\n", remote)
+				errs <- err
+			}
+		}(kvolumes[i], bytes.NewReader(buf))
+	}
+	wg.Wait()
+	close(errs)
+	for range errs {
+		return 500
 	}
 
 	var hash = ""
 	if a.md5sum {
 		// compute the hash of the value
-		hash = fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
+		hash = fmt.Sprintf("%x", md5.Sum(buf))
 	}
 
 	// push to leveldb as existing
