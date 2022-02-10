@@ -117,13 +117,14 @@ func (a *App) Rebuild() {
 	reqs := make(chan RebuildRequest, 20000)
 
 	for i := 0; i < 128; i++ {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for req := range reqs {
 				files := get_files(req.url)
 				for _, f := range files {
 					rebuild(a, req.vol, f.Name)
 				}
-				wg.Done()
 			}
 		}()
 	}
@@ -133,7 +134,6 @@ func (a *App) Rebuild() {
 			if valid(i) {
 				for _, j := range get_files(fmt.Sprintf("http://%s/%s/", tvol, i.Name)) {
 					if valid(j) {
-						wg.Add(1)
 						url := fmt.Sprintf("http://%s/%s/%s/", tvol, i.Name, j.Name)
 						reqs <- RebuildRequest{tvol, url}
 					}

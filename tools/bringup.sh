@@ -1,6 +1,7 @@
 #!/bin/bash
 #trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 kill $(pgrep -f nginx)
+kill $(pgrep -f mkv)
 
 PORT=3001 ./volume /tmp/volume1/ &
 PORT=3002 ./volume /tmp/volume2/ &

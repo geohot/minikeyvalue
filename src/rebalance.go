@@ -121,10 +121,11 @@ func (a *App) Rebalance() {
 	reqs := make(chan RebalanceRequest, 20000)
 
 	for i := 0; i < 16; i++ {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for req := range reqs {
 				rebalance(a, req)
-				wg.Done()
 			}
 		}()
 	}
@@ -136,7 +137,6 @@ func (a *App) Rebalance() {
 		copy(key, iter.Key())
 		rec := toRecord(iter.Value())
 		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
-		wg.Add(1)
 		reqs <- RebalanceRequest{
 			key:      key,
 			volumes:  rec.rvolumes,
