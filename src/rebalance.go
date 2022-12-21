@@ -108,10 +108,7 @@ func rebalance(a *App, req RebalanceRequest) bool {
 			}
 		}
 	}
-	if delete_error {
-		return false
-	}
-	return true
+	return !delete_error
 }
 
 func (a *App) Rebalance() {

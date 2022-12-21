@@ -288,7 +288,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			w.WriteHeader(204)
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
-			if a.uploadids[uploadid] != true {
+			if !a.uploadids[uploadid] {
 				w.WriteHeader(403)
 				return
 			}
@@ -341,7 +341,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if pn := r.URL.Query().Get("partNumber"); pn != "" {
 			uploadid := r.URL.Query().Get("uploadId")
-			if a.uploadids[uploadid] != true {
+			if !a.uploadids[uploadid] {
 				w.WriteHeader(403)
 				return
 			}

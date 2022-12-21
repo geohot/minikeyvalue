@@ -3,7 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
+
 	"log"
 	"math/rand"
 	"net/http"
@@ -89,7 +90,7 @@ func main() {
 	}
 
 	if !*verbose {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	} else {
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
@@ -120,7 +121,6 @@ func main() {
 		md5sum:     *md5sum,
 		voltimeout: *voltimeout,
 	}
-
 	if command == "server" {
 		http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
 	} else if command == "rebuild" {
