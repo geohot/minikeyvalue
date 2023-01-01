@@ -141,6 +141,9 @@ func (a *App) Delete(key []byte, unlink bool) int {
 	return 204
 }
 
+
+
+
 func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 	// we don't have the key, compute the remote URL
 	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
@@ -150,26 +153,34 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 		return 500
 	}
 
-	// write to each replica
-	var buf bytes.Buffer
-	body := io.TeeReader(value, &buf)
+	// create a buffered reader to read the value
+	buf := bufio.NewReader(value)
+
+	// compute the hash of the value, if needed
+	var hash string
+	if a.md5sum {
+		hash = fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
+		buf.Reset(bytes.NewReader(buf.Bytes()))
+	}
+
+	// create a channel to receive the results of writing to each replica
+	resultCh := make(chan error, len(kvolumes))
+
+	// write to each replica in a separate goroutine
 	for i := 0; i < len(kvolumes); i++ {
-		if i != 0 {
-			// if we have already read the contents into the TeeReader
-			body = bytes.NewReader(buf.Bytes())
-		}
-		remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-		if remote_put(remote, valuelen, body) != nil {
+		go func(i int) {
+			remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
+			resultCh <- remote_put(remote, valuelen, buf)
+		}(i)
+	}
+
+	// wait for all goroutines to complete
+	for i := 0; i < len(kvolumes); i++ {
+		if err := <-resultCh; err != nil {
 			// we assume the remote wrote nothing if it failed
 			fmt.Printf("replica %d write failed: %s\n", i, remote)
 			return 500
 		}
-	}
-
-	var hash = ""
-	if a.md5sum {
-		// compute the hash of the value
-		hash = fmt.Sprintf("%x", md5.Sum(buf.Bytes()))
 	}
 
 	// push to leveldb as existing
@@ -181,6 +192,19 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 	// 201, all good
 	return 201
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := []byte(r.URL.Path)
