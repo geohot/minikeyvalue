@@ -362,6 +362,20 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "DELETE", "UNLINK":
 		status := a.Delete(key, r.Method == "UNLINK")
 		w.WriteHeader(status)
+	case "RELINK":
+		rec := a.GetRecord(key)
+		if rec.deleted != SOFT {
+			w.WriteHeader(404)
+			return
+		}
+
+		if !a.PutRecord(key, Record{rec.rvolumes, NO, rec.hash}) {
+			w.WriteHeader(500)
+			return
+		}
+
+		// 204, all good
+		w.WriteHeader(204)
 	case "REBALANCE":
 		rec := a.GetRecord(key)
 		if rec.deleted != NO {
