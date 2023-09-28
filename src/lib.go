@@ -22,6 +22,7 @@ const (
 	NO   Deleted = 0
 	SOFT Deleted = 1
 	HARD Deleted = 2
+	INIT Deleted = 3 // data not written yet
 )
 
 type Record struct {
@@ -34,7 +35,10 @@ func toRecord(data []byte) Record {
 	var rec Record
 	ss := string(data)
 	rec.deleted = NO
-	if strings.HasPrefix(ss, "DELETED") {
+	if strings.HasPrefix(ss, "INIT") {
+		rec.deleted = INIT
+		ss = ss[4:]
+	} else if strings.HasPrefix(ss, "DELETED") {
 		rec.deleted = SOFT
 		ss = ss[7:]
 	}
@@ -51,7 +55,9 @@ func fromRecord(rec Record) []byte {
 	if rec.deleted == HARD {
 		panic("Can't put HARD delete in the database")
 	}
-	if rec.deleted == SOFT {
+	if rec.deleted == INIT {
+		cc = "INIT"
+	} else if rec.deleted == SOFT {
 		cc = "DELETED"
 	}
 	if len(rec.hash) == 32 {
