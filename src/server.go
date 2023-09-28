@@ -195,7 +195,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// lock the key while a PUT or DELETE is in progress
-	if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "REPLACE" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
 		if !a.LockKey(lkey) {
 			// Conflict, retry later
 			w.WriteHeader(409)
@@ -324,19 +324,21 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("<CompleteMultipartUploadResult></CompleteMultipartUploadResult>"))
 			return
 		}
-	case "PUT":
+	case "PUT", "REPLACE":
 		// no empty values
 		if r.ContentLength == 0 {
 			w.WriteHeader(411)
 			return
 		}
 
-		// check if we already have the key, and it's not deleted
-		rec := a.GetRecord(key)
-		if rec.deleted == NO {
-			// Forbidden to overwrite with PUT
-			w.WriteHeader(403)
-			return
+		if r.Method == "PUT" {
+			// check if we already have the key, and it's not deleted
+			rec := a.GetRecord(key)
+			if rec.deleted == NO {
+				// Forbidden to overwrite with PUT
+				w.WriteHeader(403)
+				return
+			}
 		}
 
 		if pn := r.URL.Query().Get("partNumber"); pn != "" {

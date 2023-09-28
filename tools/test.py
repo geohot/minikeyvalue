@@ -124,6 +124,42 @@ class TestMiniKeyValue(unittest.TestCase):
     # redirect, content length should be size of data
     self.assertEqual(int(r.headers['content-length']), len(data))
 
+  def test_put_replace(self):
+    key = self.get_fresh_key()
+
+    r = requests.put(key, data="abc")
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.request("REPLACE", key, data="123")
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key)
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.text, "123")
+
+    r = requests.delete(key)
+    self.assertEqual(r.status_code, 204)
+
+  def test_replace_replace(self):
+    key = self.get_fresh_key()
+
+    r = requests.request("REPLACE", key, data="123")
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key)
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.text, "123")
+
+    r = requests.request("REPLACE", key, data="456")
+    self.assertEqual(r.status_code, 201)
+
+    r = requests.get(key)
+    self.assertEqual(r.status_code, 200)
+    self.assertEqual(r.text, "456")
+
+    r = requests.delete(key)
+    self.assertEqual(r.status_code, 204)
+
   def test_large_key(self):
     key = self.get_fresh_key()
 
