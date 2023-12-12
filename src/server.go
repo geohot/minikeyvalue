@@ -159,9 +159,10 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 			body = bytes.NewReader(buf.Bytes())
 		}
 		remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-		if remote_put(remote, valuelen, body) != nil {
+		err := remote_put(remote, valuelen, body)
+		if err != nil {
 			// we assume the remote wrote nothing if it failed
-			fmt.Printf("replica %d write failed: %s\n", i, remote)
+			fmt.Printf("replica %d write failed: %s\n  %s", i, remote, err)
 			return 500
 		}
 	}
