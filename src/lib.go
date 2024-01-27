@@ -171,7 +171,7 @@ func remote_get(remote string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", errors.New(fmt.Sprintf("remote_get: wrong status code %d", resp.StatusCode))
 	}
 	body, err := ioutil.ReadAll(resp.Body)
@@ -193,5 +193,5 @@ func remote_head(remote string, timeout time.Duration) (bool, error) {
 		return false, err
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode == 200, nil
+	return resp.StatusCode == http.StatusOK, nil
 }

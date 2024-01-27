@@ -41,7 +41,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 			ret += "<Contents><Key>" + string(iter.Key()[len(key):]) + "</Key></Contents>"
 		}
 		ret += "</ListBucketResult>"
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(ret))
 		return
 	}
@@ -56,7 +56,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 		if qlimit != "" {
 			nlimit, err := strconv.Atoi(qlimit)
 			if err != nil {
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			limit = nlimit
@@ -77,7 +77,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if len(keys) > 1000000 { // too large (need to specify limit)
-				w.WriteHeader(413)
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
 				return
 			}
 			if limit > 0 && len(keys) == limit { // limit results returned
@@ -88,15 +88,15 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 		}
 		str, err := json.Marshal(ListResponse{Next: next, Keys: keys})
 		if err != nil {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		w.Write(str)
 		return
 	default:
-		w.WriteHeader(403)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 }
@@ -105,16 +105,16 @@ func (a *App) Delete(key []byte, unlink bool) int {
 	// delete the key, first locally
 	rec := a.GetRecord(key)
 	if rec.deleted == HARD || (unlink && rec.deleted == SOFT) {
-		return 404
+		return http.StatusNotFound
 	}
 
 	if !unlink && a.protect && rec.deleted == NO {
-		return 403
+		return http.StatusForbidden
 	}
 
 	// mark as deleted
 	if !a.PutRecord(key, Record{rec.rvolumes, SOFT, rec.hash}) {
-		return 500
+		return http.StatusInternalServerError
 	}
 
 	if !unlink {
@@ -130,7 +130,7 @@ func (a *App) Delete(key []byte, unlink bool) int {
 		}
 
 		if delete_error {
-			return 500
+			return http.StatusInternalServerError
 		}
 
 		// this is a hard delete in the database, aka nothing
@@ -138,7 +138,7 @@ func (a *App) Delete(key []byte, unlink bool) int {
 	}
 
 	// 204, all good
-	return 204
+	return http.StatusNoContent
 }
 
 func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
@@ -147,7 +147,7 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 
 	// push to leveldb initially as deleted, and without a hash since we don't have it yet
 	if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
-		return 500
+		return http.StatusInternalServerError
 	}
 
 	// write to each replica
@@ -162,7 +162,7 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 		if remote_put(remote, valuelen, body) != nil {
 			// we assume the remote wrote nothing if it failed
 			fmt.Printf("replica %d write failed: %s\n", i, remote)
-			return 500
+			return http.StatusInternalServerError
 		}
 	}
 
@@ -175,11 +175,11 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 	// push to leveldb as existing
 	// note that the key is locked, so nobody wrote to the leveldb
 	if !a.PutRecord(key, Record{kvolumes, NO, hash}) {
-		return 500
+		return http.StatusInternalServerError
 	}
 
 	// 201, all good
-	return 201
+	return http.StatusCreated
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -198,7 +198,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
 		if !a.LockKey(lkey) {
 			// Conflict, retry later
-			w.WriteHeader(409)
+			w.WriteHeader(http.StatusConflict)
 			return
 		}
 		defer a.UnlockKey(lkey)
@@ -215,7 +215,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if rec.deleted == SOFT || rec.deleted == HARD {
 			if a.fallback == "" {
 				w.Header().Set("Content-Length", "0")
-				w.WriteHeader(404)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			// fall through to fallback
@@ -243,20 +243,20 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// if not found on any volume servers, fail before the redirect
 			if !good {
 				w.Header().Set("Content-Length", "0")
-				w.WriteHeader(404)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			// note: this can race and fail, but in that case the client will handle the retry
 		}
 		w.Header().Set("Location", remote)
 		w.Header().Set("Content-Length", "0")
-		w.WriteHeader(302)
+		w.WriteHeader(http.StatusFound)
 	case "POST":
 		// check if we already have the key, and it's not deleted
 		rec := a.GetRecord(key)
 		if rec.deleted == NO {
 			// Forbidden to overwrite with POST
-			w.WriteHeader(403)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
@@ -266,7 +266,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			a.uploadids[uploadid] = true
 
 			// init multipart upload
-			w.WriteHeader(200)
+			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`<InitiateMultipartUploadResult>
         <UploadId>` + uploadid + `</UploadId>
       </InitiateMultipartUploadResult>`))
@@ -274,22 +274,22 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			del, err := parseDelete(r.Body)
 			if err != nil {
 				log.Println(err)
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
 			for _, subkey := range del.Keys {
 				fullkey := fmt.Sprintf("%s/%s", key, subkey)
 				status := a.Delete([]byte(fullkey), false)
-				if status != 204 {
+				if status != http.StatusNoContent {
 					w.WriteHeader(status)
 					return
 				}
 			}
-			w.WriteHeader(204)
+			w.WriteHeader(http.StatusNoContent)
 		} else if uploadid := r.URL.Query().Get("uploadId"); uploadid != "" {
 			if a.uploadids[uploadid] != true {
-				w.WriteHeader(403)
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 			delete(a.uploadids, uploadid)
@@ -298,7 +298,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cmu, err := parseCompleteMultipartUpload(r.Body)
 			if err != nil {
 				log.Println(err)
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -310,7 +310,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				f, err := os.Open(fn)
 				os.Remove(fn)
 				if err != nil {
-					w.WriteHeader(403)
+					w.WriteHeader(http.StatusForbidden)
 					return
 				}
 				defer f.Close()
@@ -327,7 +327,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "PUT":
 		// no empty values
 		if r.ContentLength == 0 {
-			w.WriteHeader(411)
+			w.WriteHeader(http.StatusLengthRequired)
 			return
 		}
 
@@ -335,26 +335,26 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rec := a.GetRecord(key)
 		if rec.deleted == NO {
 			// Forbidden to overwrite with PUT
-			w.WriteHeader(403)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
 		if pn := r.URL.Query().Get("partNumber"); pn != "" {
 			uploadid := r.URL.Query().Get("uploadId")
 			if a.uploadids[uploadid] != true {
-				w.WriteHeader(403)
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 
 			pnnum, _ := strconv.Atoi(pn)
 			f, err := os.OpenFile(fmt.Sprintf("/tmp/%s-%d", uploadid, pnnum), os.O_RDWR|os.O_CREATE, 0600)
 			if err != nil {
-				w.WriteHeader(403)
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 			defer f.Close()
 			io.Copy(f, r.Body)
-			w.WriteHeader(200)
+			w.WriteHeader(http.StatusOK)
 		} else {
 			status := a.WriteToReplicas(key, r.Body, r.ContentLength)
 			w.WriteHeader(status)
@@ -365,18 +365,18 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "REBALANCE":
 		rec := a.GetRecord(key)
 		if rec.deleted != NO {
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 		rbreq := RebalanceRequest{key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
 		if !rebalance(a, rbreq) {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		// 204, all good
-		w.WriteHeader(204)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
