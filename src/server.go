@@ -224,7 +224,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
 			if needs_rebalance(rec.rvolumes, kvolumes) {
 				w.Header().Set("Key-Balance", "unbalanced")
-				fmt.Println("on wrong volumes, needs rebalance")
+				fmt.Printf("on wrong volumes, needs rebalance: %s\n", key)
 			} else {
 				w.Header().Set("Key-Balance", "balanced")
 			}
@@ -239,6 +239,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					good = true
 					break
 				}
+				fmt.Printf("not found, request timeout: %s\n", remote)
 			}
 			// if not found on any volume servers, fail before the redirect
 			if !good {
