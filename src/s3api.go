@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/xml"
 	"io"
-	"io/ioutil"
 )
 
 type CompleteMultipartUpload struct {
@@ -17,7 +16,7 @@ type Delete struct {
 }
 
 func parseXML(r io.Reader, dat interface{}) error {
-	out, err := ioutil.ReadAll(r)
+	out, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
