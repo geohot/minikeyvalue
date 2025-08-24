@@ -83,14 +83,19 @@ func (s byScore) Less(i, j int) bool {
 	return bytes.Compare(s[i].score, s[j].score) == 1
 }
 
-func key2volume(key []byte, volumes []string, count int, svcount int) []string {
+func key2volume(key []byte, volumes []string, count int, svcount int, vdir_colocation bool) []string {
 	// this is an intelligent way to pick the volume server for a file
 	// stable in the volume server name (not position!)
 	// and if more are added the correct portion will move (yay md5!)
 	var sortvols []sortvol
 	for _, v := range volumes {
 		hash := md5.New()
-		hash.Write(key)
+		// truncate key at last slash if vdir_colocation is enabled
+		if i := bytes.LastIndexByte(key, '/'); vdir_colocation && i != -1 {
+			hash.Write(key[:i])
+		} else {
+			hash.Write(key)
+		}
 		hash.Write([]byte(v))
 		score := hash.Sum(nil)
 		sortvols = append(sortvols, sortvol{score, v})

@@ -143,7 +143,7 @@ func (a *App) Delete(key []byte, unlink bool) int {
 
 func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 	// we don't have the key, compute the remote URL
-	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 
 	// push to leveldb initially as deleted, and without a hash since we don't have it yet
 	if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
@@ -221,7 +221,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// fall through to fallback
 			remote = fmt.Sprintf("http://%s%s", a.fallback, key)
 		} else {
-			kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+			kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 			if needs_rebalance(rec.rvolumes, kvolumes) {
 				w.Header().Set("Key-Balance", "unbalanced")
 				fmt.Println("on wrong volumes, needs rebalance")
@@ -369,7 +369,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 		rbreq := RebalanceRequest{key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
 		if !rebalance(a, rbreq) {
 			w.WriteHeader(400)

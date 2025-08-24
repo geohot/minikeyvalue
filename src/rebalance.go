@@ -135,7 +135,7 @@ func (a *App) Rebalance() {
 		key := make([]byte, len(iter.Key()))
 		copy(key, iter.Key())
 		rec := toRecord(iter.Value())
-		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 		wg.Add(1)
 		reqs <- RebalanceRequest{
 			key:      key,

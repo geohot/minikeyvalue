@@ -41,7 +41,7 @@ func rebuild(a *App, vol string, name string) bool {
 		return false
 	}
 
-	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 
 	if !a.LockKey(key) {
 		fmt.Println("lockKey issue", key)

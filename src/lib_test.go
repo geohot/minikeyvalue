@@ -31,7 +31,7 @@ func Test_key2volume(t *testing.T) {
 		"blah":       "curly",
 	}
 	for k, v := range tests {
-		ret := key2volume([]byte(k), volumes, 1, 3)
+		ret := key2volume([]byte(k), volumes, 1, 3, false)
 		if strings.Split(ret[0], "/")[0] != v {
 			t.Fatal("key2volume function broke", k, ret, v)
 		}

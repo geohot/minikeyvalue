@@ -22,14 +22,15 @@ type App struct {
 	lock  map[string]struct{}
 
 	// params
-	uploadids  map[string]bool
-	volumes    []string
-	fallback   string
-	replicas   int
-	subvolumes int
-	protect    bool
-	md5sum     bool
-	voltimeout time.Duration
+	uploadids       map[string]bool
+	volumes         []string
+	fallback        string
+	replicas        int
+	subvolumes      int
+	protect         bool
+	md5sum          bool
+	voltimeout      time.Duration
+	vdir_colocation bool
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -77,6 +78,7 @@ func main() {
 	verbose := flag.Bool("v", false, "Verbose output")
 	md5sum := flag.Bool("md5sum", true, "Calculate and store MD5 checksum of values")
 	voltimeout := flag.Duration("voltimeout", 1*time.Second, "Volume servers must respond to GET/HEAD requests in this amount of time or they are considered down, as duration")
+	vdir_colocation := flag.Bool("vdircolocation", false, "Enable virtual directory colocation, which places items with the same prefix before the last slash on the same volume server(s)")
 	flag.Parse()
 
 	volumes := strings.Split(*pvolumes, ",")
@@ -110,15 +112,16 @@ func main() {
 
 	fmt.Printf("volume servers: %s\n", volumes)
 	a := App{db: db,
-		lock:       make(map[string]struct{}),
-		uploadids:  make(map[string]bool),
-		volumes:    volumes,
-		fallback:   *fallback,
-		replicas:   *replicas,
-		subvolumes: *subvolumes,
-		protect:    *protect,
-		md5sum:     *md5sum,
-		voltimeout: *voltimeout,
+		lock:            make(map[string]struct{}),
+		uploadids:       make(map[string]bool),
+		volumes:         volumes,
+		fallback:        *fallback,
+		replicas:        *replicas,
+		subvolumes:      *subvolumes,
+		protect:         *protect,
+		md5sum:          *md5sum,
+		voltimeout:      *voltimeout,
+		vdir_colocation: *vdir_colocation,
 	}
 
 	if command == "server" {
