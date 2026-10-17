@@ -29,8 +29,8 @@ func remote_delete(remote string) error {
 	return nil
 }
 
-func remote_put(remote string, length int64, body io.Reader) error {
-	req, err := http.NewRequest("PUT", remote, body)
+func remote_set(method string, remote string, length int64, body io.Reader) error {
+	req, err := http.NewRequest(method, remote, body)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func remote_put(remote string, length int64, body io.Reader) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 201 && resp.StatusCode != 204 {
-		return fmt.Errorf("remote_put: wrong status code %d", resp.StatusCode)
+		return fmt.Errorf("remote_set: wrong status code %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -76,9 +76,14 @@ func main() {
 		go func() {
 			for {
 				key := <-reqs
-				value := fmt.Sprintf("value-%d", rand.Int())
-				if err := remote_put("http://localhost:3000/"+key, int64(len(value)), strings.NewReader(value)); err != nil {
-					fmt.Println("PUT FAILED", err)
+				val := rand.Int()
+				value := fmt.Sprintf("value-%d", val)
+				method := "PUT"
+				if val % 4 == 0 {
+					method = "REPLACE"
+				}
+				if err := remote_set(method, "http://localhost:3000/"+key, int64(len(value)), strings.NewReader(value)); err != nil {
+					fmt.Println(method + " FAILED", err)
 					resp <- false
 					continue
 				}

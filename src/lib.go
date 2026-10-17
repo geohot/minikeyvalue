@@ -22,19 +22,28 @@ const (
 	NO   Deleted = 0
 	SOFT Deleted = 1
 	HARD Deleted = 2
+	INIT Deleted = 3 // data not written yet
 )
 
 type Record struct {
 	rvolumes []string
 	deleted  Deleted
 	hash     string
+	locked   bool
 }
 
 func toRecord(data []byte) Record {
 	var rec Record
 	ss := string(data)
+	if strings.HasPrefix(ss, "LOCKED") {
+		rec.locked = true
+		ss = ss[6:]
+	}
 	rec.deleted = NO
-	if strings.HasPrefix(ss, "DELETED") {
+	if strings.HasPrefix(ss, "INIT") {
+		rec.deleted = INIT
+		ss = ss[4:]
+	} else if strings.HasPrefix(ss, "DELETED") {
 		rec.deleted = SOFT
 		ss = ss[7:]
 	}
@@ -51,8 +60,13 @@ func fromRecord(rec Record) []byte {
 	if rec.deleted == HARD {
 		panic("Can't put HARD delete in the database")
 	}
-	if rec.deleted == SOFT {
-		cc = "DELETED"
+	if rec.locked {
+		cc = "LOCKED"
+	}
+	if rec.deleted == INIT {
+		cc += "INIT"
+	} else if rec.deleted == SOFT {
+		cc += "DELETED"
 	}
 	if len(rec.hash) == 32 {
 		cc += "HASH" + rec.hash
@@ -83,14 +97,19 @@ func (s byScore) Less(i, j int) bool {
 	return bytes.Compare(s[i].score, s[j].score) == 1
 }
 
-func key2volume(key []byte, volumes []string, count int, svcount int) []string {
+func key2volume(key []byte, volumes []string, count int, svcount int, vdir_colocation bool) []string {
 	// this is an intelligent way to pick the volume server for a file
 	// stable in the volume server name (not position!)
 	// and if more are added the correct portion will move (yay md5!)
 	var sortvols []sortvol
 	for _, v := range volumes {
 		hash := md5.New()
-		hash.Write(key)
+		// truncate key at last slash if vdir_colocation is enabled
+		if i := bytes.LastIndexByte(key, '/'); vdir_colocation && i != -1 {
+			hash.Write(key[:i])
+		} else {
+			hash.Write(key)
+		}
 		hash.Write([]byte(v))
 		score := hash.Sum(nil)
 		sortvols = append(sortvols, sortvol{score, v})
@@ -132,11 +151,18 @@ func needs_rebalance(volumes []string, kvolumes []string) bool {
 
 // *** Remote Access Functions ***
 
-func remote_delete(remote string) error {
+func addAuth(req *http.Request, auth string) {
+	if auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+}
+
+func remote_delete(remote string, auth string) error {
 	req, err := http.NewRequest("DELETE", remote, nil)
 	if err != nil {
 		return err
 	}
+	addAuth(req, auth)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -148,12 +174,13 @@ func remote_delete(remote string) error {
 	return nil
 }
 
-func remote_put(remote string, length int64, body io.Reader) error {
+func remote_put(remote string, length int64, body io.Reader, auth string) error {
 	req, err := http.NewRequest("PUT", remote, body)
 	if err != nil {
 		return err
 	}
 	req.ContentLength = length
+	addAuth(req, auth)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -165,8 +192,13 @@ func remote_put(remote string, length int64, body io.Reader) error {
 	return nil
 }
 
-func remote_get(remote string) (string, error) {
-	resp, err := http.Get(remote)
+func remote_get(remote string, auth string) (string, error) {
+	req, err := http.NewRequest("GET", remote, nil)
+	if err != nil {
+		return "", err
+	}
+	addAuth(req, auth)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -181,13 +213,14 @@ func remote_get(remote string) (string, error) {
 	return string(body), nil
 }
 
-func remote_head(remote string, timeout time.Duration) (bool, error) {
+func remote_head(remote string, timeout time.Duration, auth string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "HEAD", remote, nil)
 	if err != nil {
 		return false, err
 	}
+	addAuth(req, auth)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false, err

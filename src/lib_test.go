@@ -31,7 +31,7 @@ func Test_key2volume(t *testing.T) {
 		"blah":       "curly",
 	}
 	for k, v := range tests {
-		ret := key2volume([]byte(k), volumes, 1, 3)
+		ret := key2volume([]byte(k), volumes, 1, 3, false)
 		if strings.Split(ret[0], "/")[0] != v {
 			t.Fatal("key2volume function broke", k, ret, v)
 		}
@@ -51,10 +51,16 @@ func fromToRecordExample(t *testing.T, rec Record, val string) {
 }
 
 func Test_fromToRecord(t *testing.T) {
-	fromToRecordExample(t, Record{[]string{"hello", "world"}, SOFT, ""}, "DELETEDhello,world")
-	fromToRecordExample(t, Record{[]string{"hello", "world"}, NO, ""}, "hello,world")
-	fromToRecordExample(t, Record{[]string{"hello"}, NO, ""}, "hello")
-	fromToRecordExample(t, Record{[]string{"hello"}, SOFT, ""}, "DELETEDhello")
-	fromToRecordExample(t, Record{[]string{"hello"}, SOFT, "5d41402abc4b2a76b9719d911017c592"}, "DELETEDHASH5d41402abc4b2a76b9719d911017c592hello")
-	fromToRecordExample(t, Record{[]string{"hello"}, NO, "5d41402abc4b2a76b9719d911017c592"}, "HASH5d41402abc4b2a76b9719d911017c592hello")
+	fromToRecordExample(t, Record{[]string{"hello", "world"}, SOFT, "", false}, "DELETEDhello,world")
+	fromToRecordExample(t, Record{[]string{"hello", "world"}, NO, "", false}, "hello,world")
+	fromToRecordExample(t, Record{[]string{"hello"}, NO, "", false}, "hello")
+	fromToRecordExample(t, Record{[]string{"hello"}, SOFT, "", false}, "DELETEDhello")
+	fromToRecordExample(t, Record{[]string{"hello"}, SOFT, "5d41402abc4b2a76b9719d911017c592", false}, "DELETEDHASH5d41402abc4b2a76b9719d911017c592hello")
+	fromToRecordExample(t, Record{[]string{"hello"}, NO, "5d41402abc4b2a76b9719d911017c592", false}, "HASH5d41402abc4b2a76b9719d911017c592hello")
+	fromToRecordExample(t, Record{[]string{"hello"}, INIT, "", false}, "INIThello")
+	fromToRecordExample(t, Record{[]string{"hello"}, INIT, "5d41402abc4b2a76b9719d911017c592", false}, "INITHASH5d41402abc4b2a76b9719d911017c592hello")
+	fromToRecordExample(t, Record{[]string{"hello"}, NO, "", true}, "LOCKEDhello")
+	fromToRecordExample(t, Record{[]string{"hello"}, NO, "5d41402abc4b2a76b9719d911017c592", true}, "LOCKEDHASH5d41402abc4b2a76b9719d911017c592hello")
+	fromToRecordExample(t, Record{[]string{"hello"}, SOFT, "", true}, "LOCKEDDELETEDhello")
+	fromToRecordExample(t, Record{[]string{"hello"}, INIT, "", true}, "LOCKEDINIThello")
 }

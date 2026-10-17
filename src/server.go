@@ -18,7 +18,6 @@ import (
 )
 
 // *** Master Server ***
-
 type ListResponse struct {
 	Next string   `json:"next"`
 	Keys []string `json:"keys"`
@@ -49,7 +48,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 	// operation is first query parameter (e.g. ?list&limit=10)
 	operation := strings.Split(r.URL.RawQuery, "&")[0]
 	switch operation {
-	case "list", "unlinked":
+	case "list", "writing", "unlinked":
 		start := r.URL.Query().Get("start")
 		limit := 0
 		qlimit := r.URL.Query().Get("limit")
@@ -73,6 +72,7 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 		for iter.Next() {
 			rec := toRecord(iter.Value())
 			if (rec.deleted != NO && operation == "list") ||
+				(rec.deleted != INIT && operation == "writing") ||
 				(rec.deleted != SOFT && operation == "unlinked") {
 				continue
 			}
@@ -101,11 +101,15 @@ func (a *App) QueryHandler(key []byte, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *App) Delete(key []byte, unlink bool) int {
+func (a *App) Delete(key []byte, unlink bool, auth string) int {
 	// delete the key, first locally
 	rec := a.GetRecord(key)
 	if rec.deleted == HARD || (unlink && rec.deleted == SOFT) {
 		return 404
+	}
+
+	if rec.locked {
+		return 423
 	}
 
 	if !unlink && a.protect && rec.deleted == NO {
@@ -113,7 +117,8 @@ func (a *App) Delete(key []byte, unlink bool) int {
 	}
 
 	// mark as deleted
-	if !a.PutRecord(key, Record{rec.rvolumes, SOFT, rec.hash}) {
+	rec.deleted = SOFT
+	if !a.PutRecord(key, rec) {
 		return 500
 	}
 
@@ -122,7 +127,7 @@ func (a *App) Delete(key []byte, unlink bool) int {
 		delete_error := false
 		for _, volume := range rec.rvolumes {
 			remote := fmt.Sprintf("http://%s%s", volume, key2path(key))
-			if remote_delete(remote) != nil {
+			if remote_delete(remote, auth) != nil {
 				// if this fails, it's possible to get an orphan file
 				// but i'm not really sure what else to do?
 				delete_error = true
@@ -141,12 +146,30 @@ func (a *App) Delete(key []byte, unlink bool) int {
 	return 204
 }
 
-func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
+func (a *App) SetDeletionLock(key []byte, locked bool, auth string) int {
+	rec := a.GetRecord(key)
+	if rec.deleted != NO {
+		return 404
+	}
+	// auth check, using DELETE on a .lock path, 204/404 on success, 401 on failure
+	remote := fmt.Sprintf("http://%s%s.lock", rec.rvolumes[0], key2path(key))
+	if !locked && remote_delete(remote, auth) != nil {
+		return 403
+	}
+
+	rec.locked = locked
+	if !a.PutRecord(key, rec) {
+		return 500
+	}
+	return 204
+}
+
+func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64, auth string) int {
 	// we don't have the key, compute the remote URL
-	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+	kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 
 	// push to leveldb initially as deleted, and without a hash since we don't have it yet
-	if !a.PutRecord(key, Record{kvolumes, SOFT, ""}) {
+	if !a.PutRecord(key, Record{kvolumes, INIT, "", false}) {
 		return 500
 	}
 
@@ -159,9 +182,11 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 			body = bytes.NewReader(buf.Bytes())
 		}
 		remote := fmt.Sprintf("http://%s%s", kvolumes[i], key2path(key))
-		if remote_put(remote, valuelen, body) != nil {
+		if remote_put(remote, valuelen, body, auth) != nil {
 			// we assume the remote wrote nothing if it failed
 			fmt.Printf("replica %d write failed: %s\n", i, remote)
+			// try not to leave key in INIT (writing) state (ignore errors)
+			a.PutRecord(key, Record{kvolumes, SOFT, "", false})
 			return 500
 		}
 	}
@@ -174,7 +199,7 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 
 	// push to leveldb as existing
 	// note that the key is locked, so nobody wrote to the leveldb
-	if !a.PutRecord(key, Record{kvolumes, NO, hash}) {
+	if !a.PutRecord(key, Record{kvolumes, NO, hash, false}) {
 		return 500
 	}
 
@@ -184,7 +209,11 @@ func (a *App) WriteToReplicas(key []byte, value io.Reader, valuelen int64) int {
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := []byte(r.URL.Path)
-	lkey := []byte(r.URL.Path + r.URL.Query().Get("partNumber"))
+	lkey := key
+	if r.Method == "PUT" || r.Method == "REPLACE" {
+		lkey = []byte(r.URL.Path + r.URL.Query().Get("partNumber"))
+	}
+	auth := r.Header.Get("Authorization")
 
 	log.Println(r.Method, r.URL, r.ContentLength, r.Header["Range"])
 
@@ -195,7 +224,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// lock the key while a PUT or DELETE is in progress
-	if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" {
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "REPLACE" || r.Method == "DELETE" || r.Method == "UNLINK" || r.Method == "REBALANCE" || r.Method == "LOCK" || r.Method == "UNLOCK" {
 		if !a.LockKey(lkey) {
 			// Conflict, retry later
 			w.WriteHeader(409)
@@ -212,7 +241,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// note that the hash is always of the whole file, not the content requested
 			w.Header().Set("Content-Md5", rec.hash)
 		}
-		if rec.deleted == SOFT || rec.deleted == HARD {
+		if rec.deleted != NO {
 			if a.fallback == "" {
 				w.Header().Set("Content-Length", "0")
 				w.WriteHeader(404)
@@ -221,10 +250,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// fall through to fallback
 			remote = fmt.Sprintf("http://%s%s", a.fallback, key)
 		} else {
-			kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
+			kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
 			if needs_rebalance(rec.rvolumes, kvolumes) {
 				w.Header().Set("Key-Balance", "unbalanced")
-				fmt.Println("on wrong volumes, needs rebalance")
+				fmt.Printf("on wrong volumes, needs rebalance: %s\n", key)
 			} else {
 				w.Header().Set("Key-Balance", "balanced")
 			}
@@ -234,16 +263,18 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			good := false
 			for _, vn := range rand.Perm(len(rec.rvolumes)) {
 				remote = fmt.Sprintf("http://%s%s", rec.rvolumes[vn], key2path(key))
-				found, _ := remote_head(remote, a.voltimeout)
+				found, _ := remote_head(remote, a.voltimeout, auth)
 				if found {
 					good = true
 					break
 				}
+				fmt.Printf("not found, request timeout: %s\n", remote)
 			}
 			// if not found on any volume servers, fail before the redirect
 			if !good {
+				fmt.Printf("not found on any volumes: %s\n", key)
 				w.Header().Set("Content-Length", "0")
-				w.WriteHeader(404)
+				w.WriteHeader(410)
 				return
 			}
 			// note: this can race and fail, but in that case the client will handle the retry
@@ -254,7 +285,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		// check if we already have the key, and it's not deleted
 		rec := a.GetRecord(key)
-		if rec.deleted == NO {
+		if rec.deleted == NO || rec.locked {
 			// Forbidden to overwrite with POST
 			w.WriteHeader(403)
 			return
@@ -279,8 +310,13 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, subkey := range del.Keys {
-				fullkey := fmt.Sprintf("%s/%s", key, subkey)
-				status := a.Delete([]byte(fullkey), false)
+				fullkey := []byte(fmt.Sprintf("%s/%s", key, subkey))
+				if !a.LockKey(fullkey) {
+					w.WriteHeader(409)
+					return
+				}
+				status := a.Delete(fullkey, false, auth)
+				a.UnlockKey(fullkey)
 				if status != 204 {
 					w.WriteHeader(status)
 					return
@@ -319,24 +355,30 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				fs = append(fs, f)
 			}
 
-			status := a.WriteToReplicas(key, io.MultiReader(fs...), sz)
+			status := a.WriteToReplicas(key, io.MultiReader(fs...), sz, auth)
 			w.WriteHeader(status)
 			w.Write([]byte("<CompleteMultipartUploadResult></CompleteMultipartUploadResult>"))
 			return
 		}
-	case "PUT":
+	case "PUT", "REPLACE":
 		// no empty values
 		if r.ContentLength == 0 {
 			w.WriteHeader(411)
 			return
 		}
 
-		// check if we already have the key, and it's not deleted
 		rec := a.GetRecord(key)
-		if rec.deleted == NO {
-			// Forbidden to overwrite with PUT
-			w.WriteHeader(403)
+		if rec.locked {
+			w.WriteHeader(423)
 			return
+		}
+		if r.Method == "PUT" {
+			// check if we already have the key, and it's not deleted
+			if rec.deleted == NO {
+				// Forbidden to overwrite with PUT
+				w.WriteHeader(403)
+				return
+			}
 		}
 
 		if pn := r.URL.Query().Get("partNumber"); pn != "" {
@@ -356,12 +398,30 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			io.Copy(f, r.Body)
 			w.WriteHeader(200)
 		} else {
-			status := a.WriteToReplicas(key, r.Body, r.ContentLength)
+			status := a.WriteToReplicas(key, r.Body, r.ContentLength, auth)
 			w.WriteHeader(status)
 		}
 	case "DELETE", "UNLINK":
-		status := a.Delete(key, r.Method == "UNLINK")
+		status := a.Delete(key, r.Method == "UNLINK", auth)
 		w.WriteHeader(status)
+	case "LOCK", "UNLOCK":
+		status := a.SetDeletionLock(key, r.Method == "LOCK", auth)
+		w.WriteHeader(status)
+	case "RELINK":
+		rec := a.GetRecord(key)
+		if rec.deleted != SOFT {
+			w.WriteHeader(404)
+			return
+		}
+
+		rec.deleted = NO
+		if !a.PutRecord(key, rec) {
+			w.WriteHeader(500)
+			return
+		}
+
+		// 204, all good
+		w.WriteHeader(204)
 	case "REBALANCE":
 		rec := a.GetRecord(key)
 		if rec.deleted != NO {
@@ -369,8 +429,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes)
-		rbreq := RebalanceRequest{key: key, volumes: rec.rvolumes, kvolumes: kvolumes}
+		kvolumes := key2volume(key, a.volumes, a.replicas, a.subvolumes, a.vdir_colocation)
+		rbreq := RebalanceRequest{key: key, volumes: rec.rvolumes, kvolumes: kvolumes, auth: auth}
 		if !rebalance(a, rbreq) {
 			w.WriteHeader(400)
 			return

@@ -58,6 +58,9 @@ curl -v -L localhost:3000/we?list
 # list unlinked keys ripe for DELETE
 curl -v -L localhost:3000/?unlinked
 
+# relink key "wehave", undo a virtual delete
+curl -v -L -X RELINK localhost:3000/wehave
+
 # put file in key "file.txt"
 curl -v -L -X PUT -T /path/to/local/file.txt localhost:3000/file.txt
 

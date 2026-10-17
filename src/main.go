@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -22,14 +25,15 @@ type App struct {
 	lock  map[string]struct{}
 
 	// params
-	uploadids  map[string]bool
-	volumes    []string
-	fallback   string
-	replicas   int
-	subvolumes int
-	protect    bool
-	md5sum     bool
-	voltimeout time.Duration
+	uploadids       map[string]bool
+	volumes         []string
+	fallback        string
+	replicas        int
+	subvolumes      int
+	protect         bool
+	md5sum          bool
+	voltimeout      time.Duration
+	vdir_colocation bool
 }
 
 func (a *App) UnlockKey(key []byte) {
@@ -50,7 +54,7 @@ func (a *App) LockKey(key []byte) bool {
 
 func (a *App) GetRecord(key []byte) Record {
 	data, err := a.db.Get(key, nil)
-	rec := Record{[]string{}, HARD, ""}
+	rec := Record{[]string{}, HARD, "", false}
 	if err != leveldb.ErrNotFound {
 		rec = toRecord(data)
 	}
@@ -61,10 +65,37 @@ func (a *App) PutRecord(key []byte, rec Record) bool {
 	return a.db.Put(key, fromRecord(rec), nil) == nil
 }
 
+func promptBasicAuth() string {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Volume server username: ")
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Username prompt failed: %s\n", err)
+		return ""
+	}
+
+	fmt.Print("Volume server password: ")
+	password, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Password prompt failed: %s\n", err)
+		return ""
+	}
+
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+	if username == "" && password == "" {
+		return ""
+	}
+	auth := username + ":" + password
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
 // *** Entry Point ***
 
 func main() {
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+	http.DefaultTransport.(*http.Transport).MaxIdleConns = 2500
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 500
 	rand.Seed(time.Now().Unix())
 
 	port := flag.Int("port", 3000, "Port for the server to listen on")
@@ -77,6 +108,7 @@ func main() {
 	verbose := flag.Bool("v", false, "Verbose output")
 	md5sum := flag.Bool("md5sum", true, "Calculate and store MD5 checksum of values")
 	voltimeout := flag.Duration("voltimeout", 1*time.Second, "Volume servers must respond to GET/HEAD requests in this amount of time or they are considered down, as duration")
+	vdir_colocation := flag.Bool("vdircolocation", false, "Enable virtual directory colocation, which places items with the same prefix before the last slash on the same volume server(s)")
 	flag.Parse()
 
 	volumes := strings.Split(*pvolumes, ",")
@@ -110,22 +142,25 @@ func main() {
 
 	fmt.Printf("volume servers: %s\n", volumes)
 	a := App{db: db,
-		lock:       make(map[string]struct{}),
-		uploadids:  make(map[string]bool),
-		volumes:    volumes,
-		fallback:   *fallback,
-		replicas:   *replicas,
-		subvolumes: *subvolumes,
-		protect:    *protect,
-		md5sum:     *md5sum,
-		voltimeout: *voltimeout,
+		lock:            make(map[string]struct{}),
+		uploadids:       make(map[string]bool),
+		volumes:         volumes,
+		fallback:        *fallback,
+		replicas:        *replicas,
+		subvolumes:      *subvolumes,
+		protect:         *protect,
+		md5sum:          *md5sum,
+		voltimeout:      *voltimeout,
+		vdir_colocation: *vdir_colocation,
 	}
 
 	if command == "server" {
 		http.ListenAndServe(fmt.Sprintf(":%d", *port), &a)
 	} else if command == "rebuild" {
-		a.Rebuild()
+		auth := promptBasicAuth()
+		a.Rebuild(auth)
 	} else if command == "rebalance" {
-		a.Rebalance()
+		auth := promptBasicAuth()
+		a.Rebalance(auth)
 	}
 }
